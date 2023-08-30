@@ -1,0 +1,44 @@
+---
+source: kassandra-tester/tests/scylla.rs
+expression: kassandra.data_snapshot()
+---
+test123:
+  tables:
+    test:
+      rows:
+        - partition_key: key
+          clustering_key:
+            - c1
+            - c2
+          data:
+            c1: c1
+            c2: c2
+            key: key
+            value: value
+        - partition_key: key
+          clustering_key:
+            - c1
+            - c22
+          data:
+            c1: c1
+            c2: c22
+            key: key
+            value: value
+        - partition_key: key
+          clustering_key:
+            - c12
+            - c2
+          data:
+            c1: c12
+            c2: c2
+            key: key
+            value: value
+        - partition_key: key2
+          clustering_key:
+            - c1
+            - c2
+          data:
+            c1: c1
+            c2: c2
+            key: key2
+            value: value

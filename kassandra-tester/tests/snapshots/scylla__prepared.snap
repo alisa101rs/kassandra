@@ -1,0 +1,13 @@
+---
+source: kassandra-tester/tests/scylla.rs
+expression: kassandra.data_snapshot()
+---
+test:
+  tables:
+    t1:
+      rows:
+        - partition_key: key
+          clustering_key: ~
+          data:
+            key: key
+            value: value

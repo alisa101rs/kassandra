@@ -1,0 +1,23 @@
+[package]
+name = "kassandra-tester"
+version = "0.8.0"
+edition = "2021"
+authors = ["Alisa Gorelova <nanopro1g@gmail.com>"]
+description = "Tester utility for cassandra"
+license = "MIT"
+readme = "../README.md"
+keywords = ["cassandra", "db", "testing", "snapshot"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+kassandra = { path = "../kassandra", version = "0.8.0" }
+tokio = { version = "1", features = ["full"] }
+futures-util = { version = "0.3.28", features = ["sink"] }
+eyre = "0.6.8"
+tracing = "0.1"
+
+[dev-dependencies]
+insta = { version = "1.29.0", features = ["yaml"] }
+scylla = { version = "0.8" }
