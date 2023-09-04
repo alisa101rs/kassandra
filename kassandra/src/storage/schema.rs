@@ -50,9 +50,9 @@ impl<'a> IntoIterator for &'a PrimaryKey {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            PrimaryKey::Empty => slice::Iter::default().into_iter(),
-            PrimaryKey::Simple(v) => slice::from_ref(v).into_iter(),
-            PrimaryKey::Composite(v) => v.into_iter(),
+            PrimaryKey::Empty => slice::Iter::default(),
+            PrimaryKey::Simple(v) => slice::from_ref(v).iter(),
+            PrimaryKey::Composite(v) => v.iter(),
         }
     }
 }

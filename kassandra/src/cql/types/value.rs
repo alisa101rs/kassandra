@@ -15,8 +15,7 @@ use uuid::Uuid;
 use crate::{
     cql::{column::ColumnType, literal::Literal},
     error::DbError,
-    frame::response::error::Error,
-    parse,
+    frame::{parse, response::error::Error},
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, From)]

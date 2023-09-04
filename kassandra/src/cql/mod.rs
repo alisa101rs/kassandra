@@ -1,5 +1,9 @@
-pub mod column;
-pub mod literal;
 pub mod query;
 pub mod types;
-pub mod value;
+
+pub mod schema;
+
+pub mod parser;
+
+pub use schema::column;
+pub use types::{literal, value};

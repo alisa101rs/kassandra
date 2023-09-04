@@ -10,6 +10,7 @@ use crate::frame::{
 };
 
 pub mod consistency;
+pub mod parse;
 pub mod request;
 pub mod response;
 pub mod write;

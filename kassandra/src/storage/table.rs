@@ -144,7 +144,7 @@ impl Table {
             keyspace:_,
             table:_,
             columns,
-            closure
+            r#where: closure
         } = query.query else {
             unreachable!()
         };
@@ -249,14 +249,16 @@ impl Table {
 
         let (prepared, result) = match query {
             QueryString::Select {
-                columns, closure, ..
+                columns,
+                r#where: closure,
+                ..
             } => {
                 let (pk_indexes, col_specs) = match closure {
-                    Some(vhere) => {
+                    Some(r#where) => {
                         let mut pk_indexes = vec![];
                         let mut col_specs = vec![];
 
-                        for (seq, (column, value)) in vhere.statements.into_iter().enumerate() {
+                        for (seq, (column, value)) in r#where.statements.into_iter().enumerate() {
                             match value {
                                 QueryValue::Literal(_) => {
                                     unimplemented!()

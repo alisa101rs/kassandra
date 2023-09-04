@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 
 use nom::{
-    branch::alt,
-    bytes::complete::{tag, take},
-    character::complete::{alpha1, alphanumeric1, multispace0},
-    combinator::{map, opt, recognize},
+    bytes::complete::{take},
+    combinator::{map},
     error,
-    error::{ErrorKind, ParseError},
-    multi::{many0_count, separated_list1},
+    error::{ErrorKind},
     number::complete,
-    sequence::{delimited, pair},
+    sequence::{pair},
     IResult,
 };
 
@@ -81,41 +78,6 @@ pub fn short_bytes(input: &[u8]) -> IResult<&[u8], &[u8]> {
     let (rest, len) = complete::be_i16(input)?;
     let (rest, bytes) = take(len as usize)(rest)?;
     Ok((rest, bytes))
-}
-
-pub fn identifier(input: &str) -> IResult<&str, String> {
-    let ident = recognize(pair(
-        alt((alpha1, tag("_"))),
-        many0_count(alt((alphanumeric1, tag("_")))),
-    ));
-
-    map(ident, |it: &str| it.to_lowercase())(input)
-}
-
-pub fn cassandra_type(input: &str) -> IResult<&str, String> {
-    let ident = pair(
-        alt((alpha1, tag("_"))),
-        many0_count(alt((alphanumeric1, tag("_")))),
-    );
-    let generics = opt(delimited(
-        tag("<"),
-        separated_list1(ws(tag(",")), ident),
-        tag(">"),
-    ));
-    let ident = pair(
-        alt((alpha1, tag("_"))),
-        many0_count(alt((alphanumeric1, tag("_")))),
-    );
-    map(recognize(pair(ident, generics)), |it: &str| it.to_owned())(input)
-}
-
-pub fn ws<'a, F: 'a, O, E: ParseError<&'a str>>(
-    inner: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
-where
-    F: FnMut(&'a str) -> IResult<&'a str, O, E>,
-{
-    delimited(multispace0, inner, multispace0)
 }
 
 pub fn consistency(input: &[u8]) -> IResult<&[u8], LegacyConsistency> {

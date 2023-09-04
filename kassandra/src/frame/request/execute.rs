@@ -1,10 +1,8 @@
-use crate::{
-    frame::{
-        consistency::{Consistency, SerialConsistency},
-        request::{query_params::QueryParameters, QueryFlags},
-        response::error::Error,
-    },
+use crate::frame::{
+    consistency::{Consistency, SerialConsistency},
     parse,
+    request::{query_params::QueryParameters, QueryFlags},
+    response::error::Error,
 };
 
 #[derive(Debug, Clone)]

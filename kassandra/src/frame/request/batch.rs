@@ -6,14 +6,14 @@ use nom::{
 use num_enum::TryFromPrimitive;
 
 use crate::{
-    cql::query::QueryString,
+    cql::{parser},
     error::DbError,
     frame::{
         consistency::{Consistency, SerialConsistency},
+        parse,
         request::{execute::Execute, query::Query, QueryFlags},
         response::error::Error,
     },
-    parse,
 };
 
 #[derive(Debug, Clone)]
@@ -57,7 +57,7 @@ impl<'a> Batch<'a> {
             match kind {
                 0 => {
                     let (r, query_string) = parse::long_string(r)?;
-                    let query = QueryString::parse(query_string)?;
+                    let query = parser::query(query_string)?;
 
                     let (r, data) = values_parser(r)?;
                     rest = r;

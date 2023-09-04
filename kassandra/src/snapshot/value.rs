@@ -93,7 +93,7 @@ impl From<CqlValue> for ValueSnapshot {
             CqlValue::Time(v) => ValueSnapshot::Time(v),
             CqlValue::Timeuuid(v) => ValueSnapshot::Timeuuid(v),
             CqlValue::Tuple(v) => {
-                ValueSnapshot::Tuple(v.into_iter().map(|v| ValueSnapshot::from(v)).collect())
+                ValueSnapshot::Tuple(v.into_iter().map(ValueSnapshot::from).collect())
             }
             CqlValue::Uuid(v) => ValueSnapshot::Uuid(v),
             CqlValue::Varint(v) => ValueSnapshot::Varint(v),

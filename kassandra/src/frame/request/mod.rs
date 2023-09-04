@@ -8,8 +8,7 @@ use tokio_util::codec::{Decoder, Encoder};
 
 use crate::{
     cql::query::QueryString,
-    frame::{request::batch::Batch, response::error::Error, write, FrameFlags, FrameParams},
-    parse,
+    frame::{parse, request::batch::Batch, response::error::Error, write, FrameFlags, FrameParams},
 };
 
 pub mod batch;

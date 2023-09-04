@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bytes::BufMut;
 use eyre::{eyre, Result};
 
-use crate::{frame, parse};
+use crate::{frame, frame::parse};
 
 #[derive(Debug)]
 pub struct Supported {

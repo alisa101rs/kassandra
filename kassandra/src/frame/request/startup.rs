@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use nom::AsBytes;
 
-use crate::{error::DbError, frame::response::error::Error, parse};
+use crate::{
+    error::DbError,
+    frame::{parse, response::error::Error},
+};
 
 pub type Parameters = HashMap<String, String>;
 

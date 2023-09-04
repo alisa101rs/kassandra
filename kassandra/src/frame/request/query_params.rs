@@ -6,9 +6,9 @@ use crate::{
     error::DbError,
     frame::{
         consistency::{Consistency, SerialConsistency},
+        parse,
         response::error::Error,
     },
-    parse,
 };
 
 pub struct QueryParameters<'a> {

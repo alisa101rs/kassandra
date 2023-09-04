@@ -5,7 +5,10 @@ use nom::{
 };
 use thiserror::Error;
 
-use crate::{error::DbError, frame::write, parse};
+use crate::{
+    error::DbError,
+    frame::{parse, write},
+};
 
 #[derive(Error, Debug, Clone)]
 #[error("[{error}] {reason}")]

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::cql::types::{NativeType, PreCqlType};
 
+// #schema #types
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ColumnType {
     Custom(String),

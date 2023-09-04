@@ -1,14 +1,14 @@
 use eyre::Result;
 
 use crate::{
-    cql::query::QueryString,
+    cql::{parser, query::QueryString},
     error::DbError,
     frame::{
         consistency::{Consistency, SerialConsistency},
+        parse,
         request::{query_params::QueryParameters, QueryFlags},
         response::error::Error,
     },
-    parse,
 };
 
 #[derive(Debug, Clone)]
@@ -27,7 +27,7 @@ pub struct Query<'a> {
 impl<'a> Query<'a> {
     pub fn simple(input: &'a str) -> Result<Self, Error> {
         Ok(Self {
-            query: QueryString::parse(input)?,
+            query: parser::query(input)?,
             raw_query: input,
             consistency: Consistency::LocalOne,
             flags: QueryFlags::empty(),
@@ -41,7 +41,7 @@ impl<'a> Query<'a> {
 
     pub fn parse(input: &'a [u8]) -> Result<Self, Error> {
         let (rest, raw_query) = parse::long_string(input)?;
-        let query = QueryString::parse(raw_query).map_err(|_| {
+        let query = parser::query(raw_query).map_err(|_| {
             Error::new(
                 DbError::SyntaxError,
                 format!("Could not parse query: {raw_query}"),

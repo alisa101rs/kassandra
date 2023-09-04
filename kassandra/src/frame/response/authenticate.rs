@@ -1,6 +1,6 @@
 use nom::IResult;
 
-use crate::parse;
+use crate::frame::parse;
 
 // Implements Authenticate message.
 #[derive(Debug)]
