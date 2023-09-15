@@ -22,7 +22,7 @@ use crate::{
         },
     },
     error::DbError,
-    frame::response::event::{SchemaChangeEvent},
+    frame::response::event::SchemaChangeEvent,
 };
 
 pub trait Catalog {

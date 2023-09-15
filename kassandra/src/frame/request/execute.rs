@@ -1,8 +1,4 @@
-use crate::frame::{
-    parse,
-    request::{query_params::QueryParameters},
-    response::error::Error,
-};
+use crate::frame::{parse, request::query_params::QueryParameters, response::error::Error};
 
 #[derive(Debug, Clone)]
 pub struct Execute<'a> {

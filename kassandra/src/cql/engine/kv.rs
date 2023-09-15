@@ -6,7 +6,7 @@ use crate::{
     cql,
     cql::{
         literal::Literal,
-        query::{QueryString},
+        query::QueryString,
         query_cache::PersistedQueryCache,
         schema::{
             keyspace::{Keyspace, Strategy},

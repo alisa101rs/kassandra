@@ -6,7 +6,7 @@ pub mod memory;
 
 pub type Entries = Vec<(String, CqlValue)>;
 
-use std::ops::{RangeBounds};
+use std::ops::RangeBounds;
 
 use crate::cql::value::CqlValue;
 

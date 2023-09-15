@@ -1,4 +1,4 @@
-use std::{collections::HashSet};
+use std::collections::HashSet;
 
 use insta::assert_yaml_snapshot;
 use kassandra::KassandraSession;

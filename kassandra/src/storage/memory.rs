@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, Bound, HashMap},
-    ops::{RangeBounds},
+    ops::RangeBounds,
 };
 
 use eyre::eyre;

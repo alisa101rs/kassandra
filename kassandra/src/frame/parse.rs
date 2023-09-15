@@ -1,13 +1,8 @@
 use std::collections::HashMap;
 
 use nom::{
-    bytes::complete::{take},
-    combinator::{map},
-    error,
-    error::{ErrorKind},
-    number::complete,
-    sequence::{pair},
-    IResult,
+    bytes::complete::take, combinator::map, error, error::ErrorKind, number::complete,
+    sequence::pair, IResult,
 };
 
 use crate::frame::consistency::{Consistency, LegacyConsistency, SerialConsistency};

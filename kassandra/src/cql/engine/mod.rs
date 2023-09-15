@@ -1,4 +1,4 @@
-use std::ops::{RangeBounds};
+use std::ops::RangeBounds;
 
 use crate::{
     cql::{query_cache::QueryCache, schema::Catalog, value::CqlValue},

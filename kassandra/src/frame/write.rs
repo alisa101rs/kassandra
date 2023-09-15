@@ -146,7 +146,7 @@ pub(crate) fn r#type(buf: &mut impl BufMut, value: &ColumnType) {
 pub(crate) fn opt_cql_value(buf: &mut impl BufMut, value: Option<&CqlValue>) {
     let Some(value) = value else {
         buf.put_i32(-1);
-        return
+        return;
     };
 
     //let mut data = Vec::new();
