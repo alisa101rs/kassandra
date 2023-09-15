@@ -145,7 +145,7 @@ fn parse_paging_state(input: &[u8]) -> IResult<&[u8], PagingState<'_>> {
     fn bytes_with_vint(input: &[u8]) -> IResult<&[u8], Option<&[u8]>> {
         let (rest, len) = unsigned_vint(input)?;
 
-        if len <= 0 {
+        if len == 0 {
             return Ok((input, None));
         }
 

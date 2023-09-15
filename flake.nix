@@ -1,40 +1,38 @@
 {
     description = "Kassandra Node package";
     inputs = {
-         nixpkgs.url = "github:NixOS/nixpkgs";
+         nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+         fenix = {
+           url = "github:nix-community/fenix";
+           inputs.nixpkgs.follows = "nixpkgs";
+         };
+         flake-utils.url = "github:numtide/flake-utils";
    };
 
     outputs = {
         self,
         nixpkgs,
-    }: let
-       allSystems = [
-           "x86_64-linux"
-            "aarch64-linux"
-            "x86_64-darwin"
-            "aarch64-darwin"
-       ];
+        fenix,
+        flake-utils,
+    }: flake-utils.lib.eachDefaultSystem (system: {
+         packages.default =
+           let
+             toolchain = fenix.packages.${system}.minimal.toolchain;
+             pkgs = nixpkgs.legacyPackages.${system};
+           in
 
-       forAllSystems = f: nixpkgs.lib.genAttrs allSystems (system: f {
-            pkgs = import nixpkgs { inherit system; };
+           (pkgs.makeRustPlatform {
+             cargo = toolchain;
+             rustc = toolchain;
+           }).buildRustPackage {
+             pname = "kassandra-node";
+             version = "0.9.0";
+
+             src = ./.;
+             nativeBuildInputs = [
+                pkgs.protobuf
+             ];
+             cargoLock.lockFile = ./Cargo.lock;
+           };
        });
-
-   in {
-        packages = forAllSystems ({ pkgs }: {
-            default = pkgs.rustPlatform.buildRustPackage rec {
-                pname = "kassandra-node";
-                version = "0.7.1";
-                cargoLock = {
-                    lockFile = ./Cargo.lock;
-                };
-                nativeBuildInputs = [
-                    pkgs.protobuf
-                ];
-                src = ./.;
-                meta = {
-                    description = "Kassandra Node";
-                };
-            };
-        });
-    };
 }

@@ -114,7 +114,7 @@ impl<'a> DataPayload<'a> {
                 let upper = {
                     let mut v = values.clone();
 
-                    for _ in 0..(self.schema.clustering_key.len() - values.len()) {
+                    for _ in 0..(self.schema.clustering_key.count() - values.len()) {
                         v.push(CqlValue::Empty)
                     }
 

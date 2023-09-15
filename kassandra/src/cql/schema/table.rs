@@ -27,7 +27,7 @@ pub enum PrimaryKey {
 }
 
 impl PrimaryKey {
-    pub fn len(&self) -> usize {
+    pub fn count(&self) -> usize {
         match self {
             PrimaryKey::Empty => 0,
             PrimaryKey::Simple(_) => 1,
