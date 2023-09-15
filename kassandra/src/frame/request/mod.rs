@@ -19,7 +19,7 @@ mod startup;
 
 pub(crate) mod query_params;
 
-pub use query_params::QueryFlags;
+pub use query_params::{QueryFlags, QueryParameters};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]

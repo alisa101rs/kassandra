@@ -1,6 +1,7 @@
 use bitflags::bitflags;
 use bytes::{BufMut, Bytes};
 use nom::AsBytes;
+use serde::Serialize;
 
 use crate::{
     cql::{column::ColumnType, value::CqlValue},
@@ -104,7 +105,7 @@ impl SchemaChange {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct TableSpec {
     pub ks_name: String,
     pub table_name: String,
@@ -117,7 +118,7 @@ impl TableSpec {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ColumnSpec {
     pub table_spec: Option<TableSpec>,
     pub name: String,
@@ -142,7 +143,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize)]
 pub struct ResultMetadata {
     pub col_count: usize,
     pub global_spec: Option<TableSpec>,
@@ -151,6 +152,10 @@ pub struct ResultMetadata {
 }
 
 impl ResultMetadata {
+    pub fn empty() -> ResultMetadata {
+        ResultMetadata::default()
+    }
+
     pub fn serialize(&self, buf: &mut impl BufMut) {
         let mut flags = ResultMetadataFlags::empty();
 

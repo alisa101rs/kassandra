@@ -14,7 +14,7 @@ use kassandra::{
         response::{error::Error, Response},
         response_sink,
     },
-    kassandra::Kassandra,
+    session::KassandraSession,
 };
 use tokio::{
     net::{TcpListener, TcpStream},
@@ -23,17 +23,17 @@ use tokio::{
 
 #[derive(Debug, Clone)]
 pub struct KassandraTester {
-    kassandra: Arc<Mutex<Kassandra>>,
+    kassandra: Arc<Mutex<KassandraSession>>,
 }
 
 impl KassandraTester {
-    pub fn new(kassandra: Kassandra) -> Self {
+    pub fn new(kassandra: KassandraSession) -> Self {
         Self {
             kassandra: Arc::new(Mutex::new(kassandra)),
         }
     }
 
-    pub async fn in_scope<F, Fut, E>(mut self, mut block: F) -> Result<Kassandra, E>
+    pub async fn in_scope<F, Fut, E>(mut self, mut block: F) -> Result<KassandraSession, E>
     where
         F: FnMut(SocketAddr) -> Fut,
         Fut: Future<Output = Result<(), E>>,
@@ -60,7 +60,7 @@ impl KassandraTester {
             .run_until(async move {
                 loop {
                     let Ok((stream, _)) = listener.accept().await else {
-                        continue
+                        continue;
                     };
                     task::spawn_local(self.clone().client(stream));
                 }

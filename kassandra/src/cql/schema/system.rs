@@ -1,27 +1,18 @@
-use crate::{
-    cql::column::ColumnType,
-    frame::request::query::Query,
-    storage::{
+use crate::cql::{
+    column::ColumnType,
+    schema::{
         keyspace::{Keyspace, Strategy},
-        schema::{Column, ColumnKind, PrimaryKey, TableSchema},
-        table::Table,
+        Column, ColumnKind, PrimaryKey, Table, TableSchema,
     },
 };
 
 pub fn system_keyspace() -> (String, Keyspace) {
-    let mut keyspace = Keyspace {
+    let keyspace = Keyspace {
         name: "system".to_string(),
         strategy: Strategy::LocalStrategy,
         tables: [peers(), local()].into_iter().collect(),
         user_defined_types: Default::default(),
     };
-
-    let query = Query::simple(
-        r#"INSERT INTO system.local ( key, bootstrapped, broadcast_address, cluster_name, data_center, gossip_generation, listen_address, native_protocol_version, rack, release_version, cql_version, host_id, schema_version, rpc_address, tokens )
-            VALUES ( 'local', 'COMPLETED', '127.0.0.1', 'Test Cluster', 'datacenter1', 1683509222, '127.0.0.1', '4', 'rack', '3.0.0', '4.1.0', 'aa1f1ae0-469d-4abf-ae3f-ecb7a17132fe', '0b1c3252-f787-4099-8594-157323b71789', '127.0.0.1', ['helloooo']);
-    "#).unwrap();
-
-    keyspace.insert(query).unwrap();
 
     ("system".to_string(), keyspace)
 }
@@ -59,8 +50,8 @@ macro_rules! system_table {
         fn $table() -> (String, Table) {
             let columns = [
                 $( (stringify!($pk_name).to_string(), Column{ ty: $pk_type, kind:  ColumnKind::PartitionKey }), )*
-                $( (stringify!($clustering_name).to_string(), Column{ ty: $clustering_type, kind:  ColumnKind::PartitionKey }), )*
-                $( (stringify!($column_name).to_string(), Column{ ty: $column_type, kind:  ColumnKind::PartitionKey }), )*
+                $( (stringify!($clustering_name).to_string(), Column{ ty: $clustering_type, kind:  ColumnKind::Clustering }), )*
+                $( (stringify!($column_name).to_string(), Column{ ty: $column_type, kind:  ColumnKind::Regular }), )*
             ].into_iter().collect();
 
             let schema = TableSchema {
@@ -78,7 +69,6 @@ macro_rules! system_table {
                 keyspace: stringify!($keyspace).to_string(),
                 name: stringify!($table).to_string(),
                 schema,
-                data: Default::default(),
             };
 
             (stringify!($table).to_string(), table)

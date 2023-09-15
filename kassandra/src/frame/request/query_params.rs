@@ -1,6 +1,9 @@
 use bitflags::bitflags;
 use eyre::Result;
-use nom::{combinator::map, multi::count, number::complete, sequence::pair};
+use integer_encoding::VarIntReader;
+use nom::{
+    bytes::complete::take, combinator::map, multi::count, number::complete, sequence::pair, IResult,
+};
 
 use crate::{
     error::DbError,
@@ -11,14 +14,29 @@ use crate::{
     },
 };
 
+#[derive(Debug, Clone)]
 pub struct QueryParameters<'a> {
     pub consistency: Consistency,
     pub flags: QueryFlags,
     pub data: Vec<Option<&'a [u8]>>,
     pub page_size: Option<usize>,
-    pub paging_state: Option<&'a [u8]>,
+    pub paging_state: Option<PagingState<'a>>,
     pub serial_consistency: Option<SerialConsistency>,
     pub default_timestamp: Option<i64>,
+}
+
+impl Default for QueryParameters<'static> {
+    fn default() -> Self {
+        Self {
+            consistency: Consistency::LocalOne,
+            flags: QueryFlags::empty(),
+            data: vec![],
+            page_size: None,
+            paging_state: None,
+            serial_consistency: None,
+            default_timestamp: None,
+        }
+    }
 }
 
 bitflags! {
@@ -31,6 +49,15 @@ bitflags! {
         const WITH_DEFAULT_TIMESTAMP    = 0b0100000;
         const WITH_NAMES_FOR_VALUES     = 0b1000000;
     }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct PagingState<'a> {
+    partition_key: Option<&'a [u8]>,
+    row_mark: Option<&'a [u8]>,
+    remaining: usize,
+    remaining_in_partition: usize,
 }
 
 impl<'a> QueryParameters<'a> {
@@ -66,7 +93,17 @@ impl<'a> QueryParameters<'a> {
         };
 
         let (rest, paging_state) = if flags.contains(QueryFlags::WITH_PAGING_STATE) {
-            parse::bytes_opt(rest)?
+            let (rest, encoded_paging_state) = parse::bytes_opt(rest)?;
+
+            if let Some(encoded_paging_state) = encoded_paging_state {
+                let (_, state) = parse_paging_state(encoded_paging_state).map_err(|er| {
+                    tracing::error!(?er, "Could not parse paging state");
+                    er
+                })?;
+                (rest, Some(state))
+            } else {
+                (rest, None)
+            }
         } else {
             (rest, None)
         };
@@ -96,4 +133,37 @@ impl<'a> QueryParameters<'a> {
             default_timestamp,
         })
     }
+}
+
+fn parse_paging_state(input: &[u8]) -> IResult<&[u8], PagingState<'_>> {
+    fn unsigned_vint(mut input: &[u8]) -> IResult<&[u8], u32> {
+        let int = input.read_varint().map_err(|_| {
+            nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::IsNot))
+        })?;
+        Ok((input, int))
+    }
+    fn bytes_with_vint(input: &[u8]) -> IResult<&[u8], Option<&[u8]>> {
+        let (rest, len) = unsigned_vint(input)?;
+
+        if len <= 0 {
+            return Ok((input, None));
+        }
+
+        map(take(len as usize), Some)(rest)
+    }
+
+    let (rest, partition_key) = bytes_with_vint(input)?;
+    let (rest, row_mark) = bytes_with_vint(rest)?;
+    let (rest, remaining) = map(unsigned_vint, |it| it as _)(rest)?;
+    let (rest, remaining_in_partition) = map(unsigned_vint, |it| it as _)(rest)?;
+
+    Ok((
+        rest,
+        PagingState {
+            partition_key,
+            row_mark,
+            remaining,
+            remaining_in_partition,
+        },
+    ))
 }

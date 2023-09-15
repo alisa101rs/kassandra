@@ -1,7 +1,7 @@
-use std::collections::HashSet;
+use std::{collections::HashSet};
 
 use insta::assert_yaml_snapshot;
-use kassandra::kassandra::Kassandra;
+use kassandra::KassandraSession;
 use kassandra_tester::KassandraTester;
 use scylla::{
     batch::{Batch, BatchType},
@@ -18,7 +18,7 @@ struct TestData {
 
 #[tokio::test]
 async fn test_simple_test_data() -> eyre::Result<()> {
-    let kassandra = Kassandra::new();
+    let kassandra = KassandraSession::new();
 
     let kassandra = KassandraTester::new(kassandra)
         .in_scope(|addr| async move {
@@ -151,7 +151,7 @@ struct TestBatchData {
 }
 #[tokio::test]
 async fn test_simple_batch_data() -> eyre::Result<()> {
-    let kassandra = Kassandra::new();
+    let kassandra = KassandraSession::new();
 
     let test = |addr| async move {
         let s = SessionBuilder::new()
@@ -203,7 +203,7 @@ async fn test_simple_batch_data() -> eyre::Result<()> {
 
 #[tokio::test]
 async fn test_prepared() -> eyre::Result<()> {
-    let kassandra = Kassandra::new();
+    let kassandra = KassandraSession::new();
 
     let test = |addr| async move {
         let s = SessionBuilder::new()

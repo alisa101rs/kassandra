@@ -6,12 +6,11 @@ use nom::{
 use num_enum::TryFromPrimitive;
 
 use crate::{
-    cql::{parser},
+    cql::{parser, query::QueryString},
     error::DbError,
     frame::{
         consistency::{Consistency, SerialConsistency},
         parse,
-        request::{execute::Execute, query::Query, QueryFlags},
         response::error::Error,
     },
 };
@@ -22,7 +21,7 @@ pub struct Batch<'a> {
     pub consistency: Consistency,
     pub serial_consistency: Option<SerialConsistency>,
     pub timestamp: Option<i64>,
-    pub values: Vec<BatchStatement<'a>>,
+    pub statements: Vec<BatchStatement<'a>>,
 }
 
 /// The type of a batch.
@@ -36,8 +35,15 @@ pub enum BatchType {
 
 #[derive(Debug, Clone)]
 pub enum BatchStatement<'a> {
-    Query(Query<'a>),
-    Prepared(Execute<'a>),
+    Query {
+        query: QueryString,
+        raw_query: &'a str,
+        values: Vec<Option<&'a [u8]>>,
+    },
+    Prepared {
+        id: &'a [u8],
+        values: Vec<Option<&'a [u8]>>,
+    },
 }
 
 impl<'a> Batch<'a> {
@@ -46,7 +52,7 @@ impl<'a> Batch<'a> {
         let batch_type = BatchType::try_from(ty).map_err(|_| DbError::ProtocolError)?;
         let (mut rest, queries_count) = be_u16::<_, nom::error::Error<_>>(rest)?;
 
-        let mut values = vec![];
+        let mut statements = vec![];
         for _ in 0..queries_count {
             let (r, kind) = be_u8::<_, nom::error::Error<_>>(rest)?;
 
@@ -59,39 +65,24 @@ impl<'a> Batch<'a> {
                     let (r, query_string) = parse::long_string(r)?;
                     let query = parser::query(query_string)?;
 
-                    let (r, data) = values_parser(r)?;
+                    let (r, values) = values_parser(r)?;
                     rest = r;
 
-                    let query = Query {
+                    let query = BatchStatement::Query {
                         query,
                         raw_query: query_string,
-                        consistency: Consistency::Any,
-                        flags: QueryFlags::VALUES,
-                        data,
-                        page_size: None,
-                        paging_state: None,
-                        serial_consistency: None,
-                        default_timestamp: None,
+                        values,
                     };
-                    values.push(BatchStatement::Query(query));
+                    statements.push(query);
                 }
                 1 => {
                     let (r, id) = parse::short_bytes(r)?;
-                    let (r, data) = values_parser(r)?;
+                    let (r, values) = values_parser(r)?;
                     rest = r;
 
-                    let execute = Execute {
-                        id,
-                        consistency: Consistency::Any,
-                        flags: QueryFlags::VALUES,
-                        data,
-                        page_size: None,
-                        paging_state: None,
-                        serial_consistency: None,
-                        default_timestamp: None,
-                    };
+                    let execute = BatchStatement::Prepared { id, values };
 
-                    values.push(BatchStatement::Prepared(execute))
+                    statements.push(execute)
                 }
                 _ => unreachable!(),
             }
@@ -132,7 +123,7 @@ impl<'a> Batch<'a> {
             consistency,
             serial_consistency,
             timestamp,
-            values,
+            statements,
         })
     }
 }

@@ -1,10 +1,10 @@
-use serde::Serialize;
-use strum_macros::EnumString;
+use serde::{Deserialize, Serialize};
+use strum::EnumString;
 
 pub mod literal;
 pub mod value;
 
-#[derive(Clone, Debug, PartialEq, Eq, EnumString, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, EnumString, Serialize, Deserialize)]
 #[strum(serialize_all = "lowercase")]
 pub enum NativeType {
     Ascii,
@@ -29,7 +29,7 @@ pub enum NativeType {
     Varint,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PreCqlType {
     Native(NativeType),
     List {

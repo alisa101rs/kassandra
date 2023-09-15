@@ -1,8 +1,10 @@
+
+
+use derive_more::Display;
 use serde::{Deserialize, Serialize};
 
 use crate::cql::types::{NativeType, PreCqlType};
 
-// #schema #types
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ColumnType {
     Custom(String),
@@ -35,6 +37,57 @@ pub enum ColumnType {
     Tuple(Vec<ColumnType>),
     Uuid,
     Varint,
+}
+
+impl ColumnType {
+    pub fn into_cql(&self) -> Option<String> {
+        Some(match self {
+            ColumnType::Custom(_) => unimplemented!(),
+            ColumnType::Ascii => "ascii".to_owned(),
+            ColumnType::Boolean => "bool".to_owned(),
+            ColumnType::Blob => "blob".to_owned(),
+            ColumnType::Counter => unimplemented!(),
+            ColumnType::Date => "date".to_owned(),
+            ColumnType::Decimal => "bigint".to_owned(),
+            ColumnType::Double => "double".to_owned(),
+            ColumnType::Duration => "timestamp".to_owned(),
+            ColumnType::Float => "float".to_owned(),
+            ColumnType::Int => "int".to_owned(),
+            ColumnType::BigInt => "bigint".to_owned(),
+            ColumnType::Text => "text".to_owned(),
+            ColumnType::Timestamp => "timestamp".to_owned(),
+            ColumnType::Inet => "inet".to_owned(),
+            ColumnType::List(l) => format!("list<{}>", l.into_cql()?),
+            ColumnType::Map(k, v) => format!("map<{}, {}>", k.into_cql()?, v.into_cql()?),
+            ColumnType::Set(i) => format!("set<{}>", i.into_cql()?),
+            ColumnType::UserDefinedType { .. } => unimplemented!(),
+            ColumnType::SmallInt => "smallint".to_owned(),
+            ColumnType::TinyInt => "timyint".to_owned(),
+            ColumnType::Time => "time".to_owned(),
+            ColumnType::Timeuuid => "timeuuid".to_owned(),
+            ColumnType::Tuple(_i) => unimplemented!(),
+            ColumnType::Uuid => "uuid".to_owned(),
+            ColumnType::Varint => "varint".to_owned(),
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Column {
+    pub ty: ColumnType,
+    pub kind: ColumnKind,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Display)]
+pub enum ColumnKind {
+    #[display(fmt = "regular")]
+    Regular,
+    #[display(fmt = "static")]
+    Static,
+    #[display(fmt = "clustering")]
+    Clustering,
+    #[display(fmt = "partition_key")]
+    PartitionKey,
 }
 
 pub fn map_pre_type(pre: PreCqlType) -> ColumnType {

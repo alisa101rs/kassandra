@@ -7,7 +7,7 @@ use clap::Parser;
 use futures_util::{SinkExt, StreamExt};
 use kassandra::{
     frame::{request::Request, request_stream, response::Response, response_sink},
-    kassandra::Kassandra,
+    KassandraSession,
 };
 use stable_eyre::Result;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
@@ -33,7 +33,10 @@ async fn main() -> Result<()> {
     logging::setup_telemetry("kassandra")?;
     let Args { port, data } = Args::parse();
     let state = data.map(std::fs::read).transpose()?;
-    let kassandra = Kassandra::load_state(state.as_deref()).unwrap();
+    let kassandra = state
+        .map(|it| KassandraSession::load_state(&it))
+        .transpose()?
+        .unwrap_or(KassandraSession::new());
     let addr = format!("0.0.0.0:{port}");
 
     tracing::info!(%addr, "Starting kassandra node");
@@ -44,11 +47,11 @@ async fn main() -> Result<()> {
 
 #[derive(Clone, Debug)]
 struct Server {
-    kassandra: Arc<Mutex<Kassandra>>,
+    kassandra: Arc<Mutex<KassandraSession>>,
 }
 
 impl Server {
-    fn new(kassandra: Kassandra) -> Self {
+    fn new(kassandra: KassandraSession) -> Self {
         Self {
             kassandra: Arc::new(Mutex::new(kassandra)),
         }
@@ -76,7 +79,7 @@ impl Server {
         }
         loop {
             let Ok((stream, addr)) = listen.accept().await else {
-                continue
+                continue;
             };
             tracing::info!(%addr, "New client");
 

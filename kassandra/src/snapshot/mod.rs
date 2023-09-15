@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::{
     snapshot::value::ValueSnapshot,
-    storage::{keyspace::Keyspace, table::Table},
+    storage::memory::{Keyspace, Table},
 };
 
 mod value;
@@ -36,9 +36,8 @@ impl<'a> From<&'a Keyspace> for KeyspaceSnapshot {
     fn from(value: &'a Keyspace) -> Self {
         Self {
             tables: value
-                .tables
                 .iter()
-                .filter(|(_, table)| !table.data.is_empty())
+                .filter(|(_, table)| !table.is_empty())
                 .map(|(key, table)| (key.clone(), table.into()))
                 .collect(),
         }
@@ -54,7 +53,7 @@ impl<'a> From<&'a Table> for TableDataSnapshot {
     fn from(value: &'a Table) -> Self {
         let mut rows = Vec::new();
 
-        for (partition_key, entries) in value.data.iter() {
+        for (partition_key, entries) in value.iter() {
             for (clustering_key, data) in entries {
                 let partition_key = partition_key.clone().into();
                 let clustering_key = clustering_key.clone().into();
@@ -64,7 +63,7 @@ impl<'a> From<&'a Table> for TableDataSnapshot {
                     clustering_key,
                     data: data
                         .iter()
-                        .map(|(k, v)| (k.clone(), v.clone().map(ValueSnapshot::from)))
+                        .map(|(k, v)| (k.clone(), v.clone().into()))
                         .collect(),
                 };
 
@@ -80,5 +79,5 @@ impl<'a> From<&'a Table> for TableDataSnapshot {
 pub struct Row {
     pub partition_key: ValueSnapshot,
     pub clustering_key: ValueSnapshot,
-    pub data: BTreeMap<String, Option<ValueSnapshot>>,
+    pub data: BTreeMap<String, ValueSnapshot>,
 }

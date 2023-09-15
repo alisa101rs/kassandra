@@ -1,9 +1,15 @@
+pub mod engine;
+pub mod execution;
+pub mod parser;
+pub mod plan;
 pub mod query;
+pub mod query_cache;
+pub mod schema;
 pub mod types;
 
-pub mod schema;
-
-pub mod parser;
-
-pub use schema::column;
-pub use types::{literal, value};
+pub use self::{
+    engine::Engine,
+    query_cache::QueryCache,
+    schema::{column, Catalog},
+    types::{literal, value},
+};
