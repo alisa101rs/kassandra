@@ -7,7 +7,7 @@ use std::{
 use bigdecimal::BigDecimal;
 use derive_more::From;
 use eyre::Result;
-use nom::number::complete::{be_f32, be_f64, be_i32, be_i64, be_u128, be_u32, be_u8};
+use nom::number::complete::{be_f32, be_f64, be_i32, be_i64, be_u128, be_u32};
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -223,8 +223,7 @@ pub fn deserialize_value(data: &[u8], col: &ColumnType) -> Result<CqlValue, Erro
             Ok(CqlValue::Timestamp(timestamp))
         }
         ColumnType::Inet => {
-            let (data, n) = be_u8::<_, nom::error::Error<_>>(data)?;
-            let (_, ip) = match n {
+            let (_, ip) = match data.len() {
                 4 => {
                     let (data, a) = be_u32::<_, nom::error::Error<_>>(data)?;
                     (data, IpAddr::V4(Ipv4Addr::from(a)))
@@ -233,7 +232,7 @@ pub fn deserialize_value(data: &[u8], col: &ColumnType) -> Result<CqlValue, Erro
                     let (data, a) = be_u128::<_, nom::error::Error<_>>(data)?;
                     (data, IpAddr::V6(Ipv6Addr::from(a)))
                 }
-                _ => {
+                n => {
                     return Err(Error::new(
                         DbError::ProtocolError,
                         format!("Invalid value passed for `inet` type. Expected 4 or 16, got {n}"),
