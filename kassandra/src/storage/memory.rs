@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{cql::value::CqlValue, snapshot::DataSnapshots};
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct Memory {
     pub(crate) data: HashMap<String, Keyspace>,
 }
