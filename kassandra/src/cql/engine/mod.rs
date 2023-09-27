@@ -31,12 +31,12 @@ pub trait Engine: Catalog + QueryCache {
         table: &'a str,
         partition_key: &'a CqlValue,
         clustering_range: impl RangeBounds<CqlValue> + Clone + 'static,
-    ) -> Result<impl Iterator<Item = Vec<(String, CqlValue)>> + 'a, Error>;
+    ) -> Result<Box<dyn Iterator<Item = Vec<(String, CqlValue)>> + 'a>, Error>;
 
     fn scan<'a>(
         &'a mut self,
         keyspace: &'a str,
         table: &'a str,
         range: impl RangeBounds<usize> + Clone + 'static,
-    ) -> Result<impl Iterator<Item = Vec<(String, CqlValue)>> + 'a, Error>;
+    ) -> Result<Box<dyn Iterator<Item = Vec<(String, CqlValue)>> + 'a>, Error>;
 }

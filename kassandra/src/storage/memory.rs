@@ -100,7 +100,7 @@ impl super::Storage for Memory {
         table: &str,
         partition_key: &CqlValue,
         range: impl RangeBounds<CqlValue> + Clone + 'static,
-    ) -> eyre::Result<impl Iterator<Item = Self::RowIterator<'_>>> {
+    ) -> eyre::Result<Box<dyn Iterator<Item = Self::RowIterator<'_>> + '_>> {
         let partition = self
             .data
             .entry(keyspace.to_owned())
@@ -108,9 +108,9 @@ impl super::Storage for Memory {
             .entry(table.to_owned())
             .or_default()
             .get(partition_key);
-        Ok(partition
-            .into_iter()
-            .flat_map(move |p| p.range(range.clone()).map(|(_k, v)| v.iter())))
+        Ok(Box::new(partition.into_iter().flat_map(move |p| {
+            p.range(range.clone()).map(|(_k, v)| v.iter())
+        })))
     }
 
     fn scan(
@@ -118,7 +118,7 @@ impl super::Storage for Memory {
         keyspace: &str,
         table: &str,
         range: impl RangeBounds<usize> + Clone + 'static,
-    ) -> eyre::Result<impl Iterator<Item = Self::RowIterator<'_>>> {
+    ) -> eyre::Result<Box<dyn Iterator<Item = Self::RowIterator<'_>> + '_>> {
         let table = self
             .data
             .entry(keyspace.to_owned())
@@ -138,10 +138,12 @@ impl super::Storage for Memory {
             Bound::Unbounded => usize::MAX,
         };
 
-        Ok(table
-            .iter()
-            .flat_map(|(_key, values)| values.iter().map(|(_, row)| row.iter()))
-            .skip(skip)
-            .take(take))
+        Ok(Box::new(
+            table
+                .iter()
+                .flat_map(|(_key, values)| values.iter().map(|(_, row)| row.iter()))
+                .skip(skip)
+                .take(take),
+        ))
     }
 }

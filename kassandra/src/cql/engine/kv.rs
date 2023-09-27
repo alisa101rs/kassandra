@@ -127,13 +127,15 @@ impl<S: Storage> cql::Engine for KvEngine<S> {
         table: &'a str,
         partition_key: &'a CqlValue,
         clustering_range: impl RangeBounds<CqlValue> + Clone + 'static,
-    ) -> Result<impl Iterator<Item = Vec<(String, CqlValue)>> + 'a, Error> {
+    ) -> Result<Box<dyn Iterator<Item = Vec<(String, CqlValue)>> + 'a>, Error> {
         let scan = self
             .data
             .read(keyspace, table, partition_key, clustering_range)
             .map_err(|e| Error::new(DbError::Invalid, format!("{e}")))?;
 
-        Ok(scan.map(|row| row.map(|(k, v)| (k.clone(), v.clone())).collect::<Vec<_>>()))
+        Ok(Box::new(scan.map(|row| {
+            row.map(|(k, v)| (k.clone(), v.clone())).collect::<Vec<_>>()
+        })))
     }
 
     fn scan<'a>(
@@ -141,12 +143,14 @@ impl<S: Storage> cql::Engine for KvEngine<S> {
         keyspace: &'a str,
         table: &'a str,
         range: impl RangeBounds<usize> + Clone + 'static,
-    ) -> Result<impl Iterator<Item = Vec<(String, CqlValue)>> + 'a, Error> {
+    ) -> Result<Box<dyn Iterator<Item = Vec<(String, CqlValue)>> + 'a>, Error> {
         let scan = self
             .data
             .scan(keyspace, table, range)
             .map_err(|e| Error::new(DbError::Invalid, format!("{e}")))?;
 
-        Ok(scan.map(|row| row.map(|(k, v)| (k.clone(), v.clone())).collect()))
+        Ok(Box::new(scan.map(|row| {
+            row.map(|(k, v)| (k.clone(), v.clone())).collect()
+        })))
     }
 }

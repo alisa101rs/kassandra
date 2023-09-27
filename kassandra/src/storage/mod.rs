@@ -41,12 +41,12 @@ pub trait Storage: std::fmt::Debug + Send {
         table: &str,
         partition_key: &CqlValue,
         range: impl RangeBounds<CqlValue> + Clone + 'static,
-    ) -> eyre::Result<impl Iterator<Item = Self::RowIterator<'_>>>;
+    ) -> eyre::Result<Box<dyn Iterator<Item = Self::RowIterator<'_>> + '_>>;
 
     fn scan(
         &mut self,
         keyspace: &str,
         table: &str,
         range: impl RangeBounds<usize> + Clone + 'static,
-    ) -> eyre::Result<impl Iterator<Item = Self::RowIterator<'_>>>;
+    ) -> eyre::Result<Box<dyn Iterator<Item = Self::RowIterator<'_>> + '_>>;
 }
