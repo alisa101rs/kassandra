@@ -27,7 +27,7 @@ use crate::{
     storage::{memory, memory::Memory},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct KassandraSession<E: cql::Engine = KvEngine<Memory>> {
     use_keyspace: Option<String>,
     engine: E,

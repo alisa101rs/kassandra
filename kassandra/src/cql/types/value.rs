@@ -233,7 +233,12 @@ pub fn deserialize_value(data: &[u8], col: &ColumnType) -> Result<CqlValue, Erro
                     let (data, a) = be_u128::<_, nom::error::Error<_>>(data)?;
                     (data, IpAddr::V6(Ipv6Addr::from(a)))
                 }
-                _ => panic!("invalid inet"),
+                _ => {
+                    return Err(Error::new(
+                        DbError::ProtocolError,
+                        format!("Invalid value passed for `inet` type. Expected 4 or 16, got {n}"),
+                    ))
+                }
             };
             Ok(CqlValue::Inet(ip))
         }
