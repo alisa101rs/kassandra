@@ -11,6 +11,7 @@ use crate::{
         consistency::{Consistency, SerialConsistency},
         parse,
         response::error::Error,
+        value::FrameValue,
     },
 };
 
@@ -18,7 +19,7 @@ use crate::{
 pub struct QueryParameters<'a> {
     pub consistency: Consistency,
     pub flags: QueryFlags,
-    pub data: Vec<Option<&'a [u8]>>,
+    pub data: Vec<FrameValue<'a>>,
     pub page_size: Option<usize>,
     pub paging_state: Option<PagingState<'a>>,
     pub serial_consistency: Option<SerialConsistency>,

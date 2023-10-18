@@ -7,7 +7,7 @@ use crate::{
         value::{deserialize_value, map_lit, CqlValue},
     },
     error::DbError,
-    frame::response::error::Error,
+    frame::{response::error::Error, value::FrameValue},
 };
 
 pub struct DataPayload<'a> {
@@ -19,7 +19,7 @@ impl<'a> DataPayload<'a> {
     pub fn read(
         schema: &'a TableSchema,
         columns: impl Iterator<Item = (String, QueryValue)> + 'a,
-        data: impl IntoIterator<Item = Option<&'a [u8]>> + 'a,
+        data: impl IntoIterator<Item = FrameValue<'a>> + 'a,
     ) -> Result<Self, Error> {
         Ok(Self {
             schema,
@@ -132,7 +132,7 @@ impl<'a> DataPayload<'a> {
 fn parse_values<'a>(
     schema: &'a TableSchema,
     c: impl Iterator<Item = (String, QueryValue)> + 'a,
-    data: impl IntoIterator<Item = Option<&'a [u8]>> + 'a,
+    data: impl IntoIterator<Item = FrameValue<'a>> + 'a,
 ) -> impl Iterator<Item = Result<(String, Option<CqlValue>), Error>> + 'a {
     ParsedValuesIter {
         schema,
@@ -150,7 +150,7 @@ struct ParsedValuesIter<'a, I, V> {
 impl<'a, I, V> Iterator for ParsedValuesIter<'a, I, V>
 where
     I: Iterator<Item = (String, QueryValue)>,
-    V: Iterator<Item = Option<&'a [u8]>>,
+    V: Iterator<Item = FrameValue<'a>>,
 {
     type Item = Result<(String, Option<CqlValue>), Error>;
 
@@ -176,9 +176,9 @@ where
                     };
 
                     match next_value {
-                        None => continue,
-                        Some(&[]) => Ok(None),
-                        Some(value) => deserialize_value(value, &schema.ty).map(Some),
+                        FrameValue::NotSet => continue,
+                        FrameValue::Null => Ok(None),
+                        FrameValue::Some(value) => deserialize_value(value, &schema.ty).map(Some),
                     }
                 }
             };

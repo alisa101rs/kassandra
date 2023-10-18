@@ -5,7 +5,10 @@ use nom::{
     sequence::pair, IResult,
 };
 
-use crate::frame::consistency::{Consistency, LegacyConsistency, SerialConsistency};
+use crate::frame::{
+    consistency::{Consistency, LegacyConsistency, SerialConsistency},
+    value::FrameValue,
+};
 
 pub fn short_string(input: &[u8]) -> IResult<&[u8], &str> {
     let (rest, n) = complete::be_u16(input)?;
@@ -53,18 +56,18 @@ pub fn bytes_opt(input: &[u8]) -> IResult<&[u8], Option<&[u8]>> {
     Ok((rest, Some(bytes)))
 }
 
-pub fn value(input: &[u8]) -> IResult<&[u8], Option<&[u8]>> {
+pub fn value(input: &[u8]) -> IResult<&[u8], FrameValue> {
     let (rest, len) = complete::be_i32(input)?;
     match len {
-        -1 => Ok((rest, Some(&[]))),
-        -2 => Ok((rest, None)),
+        -1 => Ok((rest, FrameValue::Null)),
+        -2 => Ok((rest, FrameValue::NotSet)),
         _ if len < -2 => Err(nom::Err::Failure(error::Error::new(
             input,
             ErrorKind::NonEmpty,
         ))),
         _ => {
             let (rest, bytes) = take(len as usize)(rest)?;
-            Ok((rest, Some(bytes)))
+            Ok((rest, FrameValue::Some(bytes)))
         }
     }
 }

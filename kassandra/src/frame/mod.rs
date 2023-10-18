@@ -13,6 +13,7 @@ pub mod consistency;
 pub mod parse;
 pub mod request;
 pub mod response;
+pub mod value;
 pub mod write;
 
 bitflags! {

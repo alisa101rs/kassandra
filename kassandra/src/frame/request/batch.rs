@@ -12,6 +12,7 @@ use crate::{
         consistency::{Consistency, SerialConsistency},
         parse,
         response::error::Error,
+        value::FrameValue,
     },
 };
 
@@ -38,11 +39,11 @@ pub enum BatchStatement<'a> {
     Query {
         query: QueryString,
         raw_query: &'a str,
-        values: Vec<Option<&'a [u8]>>,
+        values: Vec<FrameValue<'a>>,
     },
     Prepared {
         id: &'a [u8],
-        values: Vec<Option<&'a [u8]>>,
+        values: Vec<FrameValue<'a>>,
     },
 }
 
