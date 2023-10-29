@@ -23,11 +23,7 @@ pub fn setup_telemetry(service: impl ToString) -> eyre::Result<()> {
     let filter_layer = tracing_subscriber::EnvFilter::try_from_default_env()
         .or_else(|_| tracing_subscriber::EnvFilter::try_new("debug"))?;
 
-    let mut layers = vec![
-        fmt_layer.boxed(),
-        filter_layer.boxed(),
-        ErrorLayer::default().boxed(),
-    ];
+    let mut layers = vec![fmt_layer.boxed(), ErrorLayer::default().boxed()];
 
     if let Ok(endpoint) = std::env::var("OTLP_EXPORTER_ENDPOINT") {
         opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
@@ -58,7 +54,10 @@ pub fn setup_telemetry(service: impl ToString) -> eyre::Result<()> {
         layers.push(tracing_opentelemetry::layer().with_tracer(tracer).boxed())
     }
 
-    tracing_subscriber::registry().with(layers).try_init()?;
+    tracing_subscriber::registry()
+        .with(filter_layer)
+        .with(layers)
+        .try_init()?;
 
     Ok(())
 }

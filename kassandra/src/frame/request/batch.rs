@@ -1,5 +1,7 @@
 use nom::{
-    combinator::map,
+    branch::alt,
+    bytes::complete::tag,
+    combinator::{map, recognize},
     multi::count,
     number::complete::{be_i16, be_i64, be_u16, be_u8},
 };
@@ -20,7 +22,7 @@ use crate::{
 pub struct Batch<'a> {
     pub batch_type: BatchType,
     pub consistency: Consistency,
-    pub serial_consistency: Option<SerialConsistency>,
+    pub serial_consistency: SerialConsistency,
     pub timestamp: Option<i64>,
     pub statements: Vec<BatchStatement<'a>>,
 }
@@ -102,11 +104,15 @@ impl<'a> Batch<'a> {
         }
 
         let (rest, serial_consistency) = if flags & 0x10 != 0 {
-            map(be_i16::<_, nom::error::Error<_>>, |f| {
-                SerialConsistency::try_from(f).ok()
-            })(rest)?
+            let (rest, raw) = recognize(alt((
+                tag::<_, _, nom::error::Error<_>>(0x0008i16.to_be_bytes()),
+                tag::<_, _, nom::error::Error<_>>(0x0009i16.to_be_bytes()),
+            )))(rest)?;
+            let number = i16::from_be_bytes(raw.try_into().unwrap());
+
+            (rest, SerialConsistency::try_from(number).unwrap())
         } else {
-            (rest, None)
+            (rest, SerialConsistency::Serial)
         };
 
         let (rest, timestamp) = if flags & 0x20 != 0 {

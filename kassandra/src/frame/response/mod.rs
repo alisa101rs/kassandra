@@ -4,7 +4,10 @@ use nom::AsBytes;
 use num_enum::TryFromPrimitive;
 use tokio_util::codec::{Decoder, Encoder};
 
-use crate::frame::{FrameFlags, FrameParams};
+use crate::{
+    error::DbError,
+    frame::{FrameFlags, FrameParams, ProtocolVersion},
+};
 
 pub mod authenticate;
 pub mod error;
@@ -54,13 +57,22 @@ impl Response {
     pub fn options() -> Self {
         Response::Supported(supported::Supported {
             options: vec![
-                ("CQL_VERSION".to_owned(), vec!["4.1.0".to_owned()]),
+                ("CQL_VERSION".to_owned(), vec!["3.0.0".to_owned()]),
                 ("COMPRESSION".to_owned(), vec![]),
                 ("PROTOCOL_VERSIONS".to_owned(), vec!["4/v4".to_owned()]),
             ]
             .into_iter()
             .collect(),
         })
+    }
+
+    /// Sends ProtocolError response with a message that most drivers expect to receive
+    /// in order to start downgrading versions
+    pub fn unsupported_version() -> Self {
+        Self::Error(error::Error::new(
+            DbError::ProtocolError,
+            "unsupported protocol version",
+        ))
     }
 
     pub fn serialize(&self, buf: &mut impl BufMut, _flags: &mut FrameFlags) -> Result<()> {
@@ -137,7 +149,7 @@ impl Encoder<(FrameParams, ResponseOpcode, Bytes)> for ResponseFrameCodec {
             stream,
         } = frame;
 
-        dst.put_u8(version); // version
+        dst.put_u8(version.to_response()); // version
         dst.put_u8(flags.bits());
         dst.put_i16(stream);
         dst.put_u8(opcode as u8);
@@ -171,15 +183,15 @@ impl Decoder for ResponseFrameCodec {
             return Ok(None);
         }
 
+        let version = ProtocolVersion::from_response(src.get_u8());
         let frame = FrameParams {
-            version: src.get_u8(),
+            version,
             flags: FrameFlags::from_bits(src.get_u8()).ok_or(eyre!("invalid flag"))?,
             stream: src.get_i16(),
         };
 
-        if frame.version != 0x84 {
+        if matches!(frame.version, ProtocolVersion::Unsupported(_)) {
             tracing::warn!(?frame, "Frame version is not v4, ignore and read as v4");
-            //Err(eyre!("Invalid version: {}", frame.version))?;
         }
 
         if frame.flags.contains(FrameFlags::COMPRESSION) {

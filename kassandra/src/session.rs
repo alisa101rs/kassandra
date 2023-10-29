@@ -128,7 +128,7 @@ impl<E: cql::Engine> KassandraSession<E> {
                     consistency: batch.consistency,
                     flags: QueryFlags::VALUES,
                     data: values,
-                    page_size: None,
+                    result_page_size: None,
                     paging_state: None,
                     serial_consistency: batch.serial_consistency,
                     default_timestamp: batch.timestamp,

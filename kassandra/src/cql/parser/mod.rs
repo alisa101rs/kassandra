@@ -149,7 +149,8 @@ mod queries {
     }
 
     pub fn insert_query(input: &str) -> IResult<&str, QueryString> {
-        let (rest, _) = terminated(tag_no_case("insert into"), multispace1)(input)?;
+        let (rest, _) = terminated(tag_no_case("insert"), multispace1)(input)?;
+        let (rest, _) = terminated(tag_no_case("into"), multispace1)(rest)?;
         let (rest, keyspace) = opt(terminated(identifier, tag(".")))(rest)?;
         let (rest, table) = terminated(identifier, multispace0)(rest)?;
         let (rest, columns) = terminated(
@@ -160,7 +161,7 @@ mod queries {
             ),
             multispace0,
         )(rest)?;
-        let (rest, _) = terminated(alt((tag("values"), tag("VALUES"))), multispace0)(rest)?;
+        let (rest, _) = terminated(tag_no_case("values"), multispace0)(rest)?;
         let (rest, values) = terminated(
             delimited(
                 ws(tag("(")),
@@ -548,22 +549,25 @@ mod types {
 }
 
 mod literal {
+    use std::str::FromStr;
 
     use nom::{
         branch::alt,
-        bytes::complete::{tag, tag_no_case, take_until},
+        bytes::complete::{tag, tag_no_case, take_until, take_while_m_n},
         character::complete::multispace0,
-        combinator::map,
+        combinator::{map, recognize},
         multi::separated_list0,
-        sequence::{delimited, separated_pair, terminated},
+        sequence::{delimited, separated_pair, terminated, tuple},
         IResult,
     };
+    use uuid::Uuid;
 
     use super::ws;
     use crate::cql::literal::Literal;
 
     pub fn parse(input: &str) -> IResult<&str, Literal> {
         alt((
+            uuid_literal,
             null_literal,
             map_literal,
             string_literal,
@@ -615,14 +619,60 @@ mod literal {
         )(input)
     }
 
+    fn uuid_literal(input: &str) -> IResult<&str, Literal> {
+        let lower_hex = tuple((
+            take_while_m_n(8, 8, is_lower_hex_digit),
+            tag("-"),
+            take_while_m_n(4, 4, is_lower_hex_digit),
+            tag("-"),
+            take_while_m_n(4, 4, is_lower_hex_digit),
+            tag("-"),
+            take_while_m_n(4, 4, is_lower_hex_digit),
+            tag("-"),
+            take_while_m_n(12, 12, is_lower_hex_digit),
+        ));
+        let upper_hex = tuple((
+            take_while_m_n(8, 8, is_upper_hex_digit),
+            tag("-"),
+            take_while_m_n(4, 4, is_upper_hex_digit),
+            tag("-"),
+            take_while_m_n(4, 4, is_upper_hex_digit),
+            tag("-"),
+            take_while_m_n(4, 4, is_upper_hex_digit),
+            tag("-"),
+            take_while_m_n(12, 12, is_upper_hex_digit),
+        ));
+        let parser = alt((lower_hex, upper_hex));
+        let (rest, lit) = recognize(parser)(input)?;
+        let uuid = Uuid::from_str(lit).expect("to be valid uuid");
+        Ok((rest, Literal::Uuid(uuid)))
+    }
+
+    #[inline]
+    fn is_lower_hex_digit(i: char) -> bool {
+        ('a'..='f').contains(&i) || i.is_ascii_digit()
+    }
+
+    #[inline]
+    fn is_upper_hex_digit(i: char) -> bool {
+        ('A'..='F').contains(&i) || i.is_ascii_digit()
+    }
+
     #[cfg(test)]
     mod tests {
-        use super::map_literal;
+        use super::{map_literal, parse};
 
         #[test]
         fn test_map() {
             let v = "{ 'class' : 'SimpleStrategy', 'replication_factor' : 1 }";
             let (_, m) = map_literal(v).unwrap();
+            println!("{m:?}");
+        }
+
+        #[test]
+        fn test_uuid() {
+            let v = "6ab09bec-e68e-48d9-a5f8-97e6fb4c9b47";
+            let (_, m) = parse(v).unwrap();
             println!("{m:?}");
         }
     }
@@ -741,5 +791,14 @@ mod tests {
         let q = "UPDATE table SET field1=null,field2=null WHERE field3=? AND field4=?;";
         let k = query(q).unwrap();
         println!("{k:?}");
+    }
+
+    #[test]
+    fn test_regressions() {
+        let qs = [ "CREATE TABLE cycling.cyclist_name (     id UUID PRIMARY KEY,     lastname text,     firstname text );", "INSERT INTO cycling.cyclist_name (id, lastname, firstname) VALUES (6ab09bec-e68e-48d9-a5f8-97e6fb4c9b47, 'KRUIKSWIJK','Steven');"];
+
+        for q in qs {
+            let _ = query(q).unwrap();
+        }
     }
 }

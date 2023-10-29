@@ -26,9 +26,49 @@ bitflags! {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ProtocolVersion {
+    V4,
+    Unsupported(u8),
+}
+
+impl ProtocolVersion {
+    pub fn is_unsupported(&self) -> bool {
+        matches!(self, Self::Unsupported(..))
+    }
+    pub fn from_request(value: u8) -> Self {
+        match value {
+            0x04 => Self::V4,
+
+            x => Self::Unsupported(x),
+        }
+    }
+
+    pub fn from_response(value: u8) -> Self {
+        match value {
+            0x84 => Self::V4,
+            x => Self::Unsupported(x),
+        }
+    }
+
+    pub fn to_request(&self) -> u8 {
+        match self {
+            ProtocolVersion::V4 => 0x04,
+            &ProtocolVersion::Unsupported(x) => x,
+        }
+    }
+
+    pub fn to_response(&self) -> u8 {
+        match self {
+            ProtocolVersion::V4 => 0x84,
+            &ProtocolVersion::Unsupported(x) => x,
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct FrameParams {
-    pub version: u8,
+    pub version: ProtocolVersion,
     pub flags: FrameFlags,
     pub stream: i16,
 }

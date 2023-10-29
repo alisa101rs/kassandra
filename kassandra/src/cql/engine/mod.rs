@@ -7,6 +7,8 @@ use crate::{
 
 pub mod kv;
 
+pub type RowsIterator<'a> = Box<dyn Iterator<Item = Vec<(String, CqlValue)>> + 'a>;
+
 pub trait Engine: Catalog + QueryCache {
     fn insert(
         &mut self,
@@ -31,12 +33,12 @@ pub trait Engine: Catalog + QueryCache {
         table: &'a str,
         partition_key: &'a CqlValue,
         clustering_range: impl RangeBounds<CqlValue> + Clone + 'static,
-    ) -> Result<Box<dyn Iterator<Item = Vec<(String, CqlValue)>> + 'a>, Error>;
+    ) -> Result<RowsIterator<'a>, Error>;
 
     fn scan<'a>(
         &'a mut self,
         keyspace: &'a str,
         table: &'a str,
         range: impl RangeBounds<usize> + Clone + 'static,
-    ) -> Result<Box<dyn Iterator<Item = Vec<(String, CqlValue)>> + 'a>, Error>;
+    ) -> Result<RowsIterator<'a>, Error>;
 }

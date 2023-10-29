@@ -21,6 +21,8 @@ pub(crate) mod query_params;
 
 pub use query_params::{QueryFlags, QueryParameters};
 
+use crate::frame::ProtocolVersion;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
 pub enum RequestOpcode {
@@ -71,13 +73,17 @@ impl<'a> Request<'a> {
         Ok(())
     }
 
-    pub fn deserialize(opcode: RequestOpcode, data: &'a [u8]) -> Result<Self, Error> {
+    pub fn deserialize(
+        opcode: RequestOpcode,
+        data: &'a [u8],
+        flags: FrameFlags,
+    ) -> Result<Self, Error> {
         let request = match opcode {
             RequestOpcode::Startup => Request::StartUp(startup::deserialize(data)?),
             RequestOpcode::Options => Request::Options,
-            RequestOpcode::Query => Request::Query(query::Query::parse(data)?),
+            RequestOpcode::Query => Request::Query(query::Query::parse(data, flags)?),
             RequestOpcode::Prepare => Request::Prepare(prepare::parse(data)?),
-            RequestOpcode::Execute => Request::Execute(execute::Execute::parse(data)?),
+            RequestOpcode::Execute => Request::Execute(execute::Execute::parse(data, flags)?),
             RequestOpcode::Register => {
                 let (_, events) = parse::short_string_list(data)?;
 
@@ -129,7 +135,7 @@ impl Encoder<(FrameParams, RequestOpcode, Bytes)> for RequestFrameCodec {
         (frame, opcode, data): (FrameParams, RequestOpcode, Bytes),
         dst: &mut BytesMut,
     ) -> Result<(), Self::Error> {
-        dst.put_u8(0x04); // version
+        dst.put_u8(ProtocolVersion::V4.to_request()); // version
         dst.put_u8(frame.flags.bits());
         dst.put_i16(frame.stream);
         dst.put_u8(opcode as _);
@@ -159,13 +165,15 @@ impl Decoder for RequestFrameCodec {
             return Ok(None);
         }
 
+        let version = ProtocolVersion::from_request(src.get_u8());
+
         let frame = FrameParams {
-            version: src.get_u8(),
+            version,
             flags: FrameFlags::from_bits(src.get_u8()).ok_or(eyre!("invalid flag"))?,
             stream: src.get_i16(),
         };
 
-        if frame.version != 0x04 {
+        if matches!(frame.version, ProtocolVersion::Unsupported(..)) {
             tracing::warn!(?frame, "Frame version is not v4, ignore and read as v4");
         }
 

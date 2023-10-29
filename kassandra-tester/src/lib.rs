@@ -76,7 +76,7 @@ impl KassandraTester {
         while let Some(frame) = stream.next().await {
             match frame {
                 Ok((frame, opcode, data)) => {
-                    let request = match Request::deserialize(opcode, &data) {
+                    let request = match Request::deserialize(opcode, &data, frame.flags) {
                         Ok(req) => req,
                         Err(er) => {
                             tracing::error!(

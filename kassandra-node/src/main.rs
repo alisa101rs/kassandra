@@ -95,7 +95,13 @@ impl Server {
             match frame {
                 Ok((frame, opcode, data)) => {
                     tracing::debug!(?frame, ?opcode, data.len = data.len(), "New message");
-                    let request = Request::deserialize(opcode, &data)?;
+                    if frame.version.is_unsupported() {
+                        sink.send((Response::unsupported_version(), frame.stream))
+                            .await?;
+                        continue;
+                    }
+
+                    let request = Request::deserialize(opcode, &data, frame.flags)?;
                     let response = self.request(request)?;
                     sink.send((response, frame.stream)).await?;
                 }

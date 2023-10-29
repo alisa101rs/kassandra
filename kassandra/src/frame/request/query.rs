@@ -3,7 +3,7 @@ use eyre::Result;
 use crate::{
     cql::{parser, query::QueryString},
     error::DbError,
-    frame::{parse, request::query_params::QueryParameters, response::error::Error},
+    frame::{parse, request::query_params::QueryParameters, response::error::Error, FrameFlags},
 };
 
 #[derive(Debug, Clone)]
@@ -22,7 +22,7 @@ impl<'a> Query<'a> {
         })
     }
 
-    pub fn parse(input: &'a [u8]) -> Result<Self, Error> {
+    pub fn parse(input: &'a [u8], flags: FrameFlags) -> Result<Self, Error> {
         let (rest, raw_query) = parse::long_string(input)?;
         let query = parser::query(raw_query).map_err(|_| {
             Error::new(
@@ -31,12 +31,24 @@ impl<'a> Query<'a> {
             )
         })?;
 
-        let parameters = QueryParameters::parse(rest)?;
+        let parameters = QueryParameters::parse(rest, flags)?;
 
         Ok(Self {
             query,
             raw_query,
             parameters,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::frame::{request::query::Query, FrameFlags};
+
+    #[test]
+    fn test_select_1() {
+        let data: &[u8] = b"\0\0\0.select * from system.local where key = 'local'\0\x01\0\0\0$\0\0\x13\x88\0\x06\x08\xd3\xa0\xc0K\xe9";
+        let q = Query::parse(data, FrameFlags::empty());
+        assert!(q.is_ok());
     }
 }

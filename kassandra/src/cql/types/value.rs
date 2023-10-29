@@ -337,6 +337,7 @@ pub fn map_lit(col: &ColumnType, lit: Literal) -> Result<CqlValue, Error> {
 
             Ok(CqlValue::Uuid(uuid))
         }
+        (ColumnType::Uuid, Literal::Uuid(uuid)) => Ok(CqlValue::Uuid(uuid)),
         (ColumnType::Set(item_ty), Literal::List(literals)) => Ok(CqlValue::Set(
             literals
                 .into_iter()

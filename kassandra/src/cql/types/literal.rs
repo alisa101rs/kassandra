@@ -1,12 +1,14 @@
 use std::{collections::HashMap, fmt};
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Literal {
     String(String),
     Number(i64),
     Float(f64),
+    Uuid(Uuid),
     List(Vec<Literal>),
     Map(HashMap<String, Literal>),
     Bool(bool),
@@ -37,6 +39,7 @@ impl fmt::Display for Literal {
             }
             Literal::Bool(b) => b.fmt(f),
             Literal::Null => write!(f, "null"),
+            Literal::Uuid(u) => u.fmt(f),
         }
     }
 }

@@ -9,7 +9,7 @@ cargo-fix-all:
 
 
 run-kassandra:
-    cargo run --package kassandra-node
+    cargo run --package kassandra-node -- --port 9042
 
 all-tests:
     cargo test --package kassandra
