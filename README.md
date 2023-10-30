@@ -1,9 +1,7 @@
 # Kassandra
 
 [![kassandra](https://img.shields.io/crates/v/kassandra.svg)](https://crates.io/crates/kassandra)
-[![kassandra-tester](https://img.shields.io/crates/v/kassandra-tester.svg)](https://crates.io/crates/kassandra-tester)
 [![build](https://github.com/alisa101rs/kassandra/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/alisa101rs/kassandra/actions/workflows/rust.yml)
-[![nix](https://github.com/alisa101rs/kassandra/actions/workflows/nix.yml/badge.svg?branch=main)](https://github.com/alisa101rs/kassandra/actions/workflows/nix.yml)
 
 
 This project aims to provide utilities to help testing
@@ -15,8 +13,8 @@ List of supported features:
 - [x] datastax cassandra driver support
 - [x] cqlsh driver
 - [x] jdbc driver
-- [ ] `select name as another_name` support
-- [ ] `select toJson(name) as another_name` support
+- [ ] same aliases support (`select name as another name`)
+- [ ] json support ('select json *`, `select toJson(name) as smth`)
 - [x] basic queries support (create, insert/upsert, update, delete)
 - [x] batch queries support
 - [ ] UDTs
@@ -25,11 +23,13 @@ List of supported features:
 - [ ] correct paging support
 
 ## Kassandra Node
+[![nix](https://github.com/alisa101rs/kassandra/actions/workflows/nix.yml/badge.svg?branch=main)](https://github.com/alisa101rs/kassandra/actions/workflows/nix.yml)
 
 In-memory, single node database implementation
 that supports cql v4 protocol.
 
 ## Kassandra Tester
+[![kassandra-tester](https://img.shields.io/crates/v/kassandra-tester.svg)](https://crates.io/crates/kassandra-tester)
 
 Provides a temporary unique socket address to connect to and run unit test.
 After test is completed, returns a Kassandra instance, which then can be used
