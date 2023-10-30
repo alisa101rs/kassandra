@@ -2,12 +2,11 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
-use crate::{
-    snapshot::value::ValueSnapshot,
-    storage::memory::{Keyspace, Table},
-};
+use crate::storage::memory::{Keyspace, Table};
 
 mod value;
+
+pub use value::ValueSnapshot;
 
 #[derive(Debug, Serialize)]
 #[serde(transparent)]

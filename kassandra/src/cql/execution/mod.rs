@@ -11,6 +11,7 @@ use crate::{
 
 mod delete;
 mod insert;
+mod json;
 mod scan;
 mod schema;
 mod select;
@@ -18,6 +19,7 @@ mod select;
 pub use self::{
     delete::DeleteNode,
     insert::InsertNode,
+    json::JsonNode,
     scan::ScanNode,
     schema::AlterSchema,
     select::{PagingState, SelectNode},

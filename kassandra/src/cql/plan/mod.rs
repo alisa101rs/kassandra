@@ -7,7 +7,8 @@ use crate::{
     cql::{
         column,
         execution::{
-            AlterSchema, DeleteNode, Executor, InsertNode, PagingState, ScanNode, SelectNode,
+            AlterSchema, DeleteNode, Executor, InsertNode, JsonNode, PagingState, ScanNode,
+            SelectNode,
         },
         query::{
             CreateKeyspaceQuery, CreateTableQuery, DeleteQuery, InsertQuery, QueryString,
@@ -35,7 +36,9 @@ mod data_reader;
 #[derive(Debug, Clone, Serialize)]
 pub enum Plan {
     Select(SelectNode),
+    SelectJson(JsonNode<SelectNode>),
     Scan(ScanNode),
+    ScanJson(JsonNode<ScanNode>),
     Insert(InsertNode),
     Delete(DeleteNode),
     AlterSchema(AlterSchema),
@@ -70,9 +73,11 @@ impl Plan {
     pub fn execute(self, engine: &mut impl cql::Engine) -> Result<QueryResult, Error> {
         match self {
             Plan::Select(s) => Box::new(s).execute(engine),
+            Plan::SelectJson(s) => Box::new(s).execute(engine),
             Plan::AlterSchema(s) => Box::new(s).execute(engine),
             Plan::Insert(i) => Box::new(i).execute(engine),
             Plan::Scan(s) => Box::new(s).execute(engine),
+            Plan::ScanJson(s) => Box::new(s).execute(engine),
             Plan::Delete(d) => Box::new(d).execute(engine),
         }
     }
@@ -386,7 +391,7 @@ impl<C: Catalog> Planner<C> {
 
         let metadata = metadata(&keyspace, &table, schema, &columns)?;
 
-        let select = SelectNode {
+        let node = SelectNode {
             keyspace,
             table,
             partition_key,
@@ -398,8 +403,11 @@ impl<C: Catalog> Planner<C> {
                 remaining: 0,
             },
         };
-
-        Ok(Plan::Select(select))
+        if select.json {
+            Ok(Plan::SelectJson(JsonNode(Box::new(node))))
+        } else {
+            Ok(Plan::Select(node))
+        }
     }
 
     fn prepare_select(
@@ -449,14 +457,18 @@ impl<C: Catalog> Planner<C> {
 
         let metadata = metadata(&keyspace, &table, schema, &columns)?;
 
-        let scan = ScanNode {
+        let node = ScanNode {
             keyspace,
             table,
             metadata,
             range: 0..500,
         };
 
-        Ok(Plan::Scan(scan))
+        if select.json {
+            Ok(Plan::ScanJson(JsonNode(Box::new(node))))
+        } else {
+            Ok(Plan::Scan(node))
+        }
     }
 }
 

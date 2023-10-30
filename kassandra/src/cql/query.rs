@@ -37,6 +37,7 @@ pub struct SelectQuery {
     pub columns: SelectExpression,
     pub r#where: WhereClosure,
     pub limit: Option<usize>,
+    pub json: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Display)]

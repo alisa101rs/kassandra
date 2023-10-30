@@ -121,7 +121,10 @@ mod queries {
     }
 
     pub fn select_query(input: &str) -> IResult<&str, QueryString> {
-        let (rest, _) = pair(alt((tag("select"), tag("SELECT"))), multispace1)(input)?;
+        let (rest, _) = terminated(tag_no_case("select"), multispace1)(input)?;
+        let (rest, json) = map(opt(terminated(tag_no_case("json"), multispace1)), |it| {
+            it.is_some()
+        })(rest)?;
 
         let (rest, columns) = select_expression(rest)?;
         let (rest, _) = delimited(multispace0, alt((tag("from"), tag("FROM"))), multispace0)(rest)?;
@@ -144,6 +147,7 @@ mod queries {
                 columns,
                 r#where: closure.unwrap_or_default(),
                 limit,
+                json,
             }),
         ))
     }
@@ -800,5 +804,14 @@ mod tests {
         for q in qs {
             let _ = query(q).unwrap();
         }
+    }
+
+    #[test]
+    fn test_select_json() {
+        let q = "SELECT JSON field1,field2,field3 FROM table WHERE field0 = ? limit 500";
+        let QueryString::Select(s) = query(q).unwrap() else {
+            panic!("was supposed to be parsed as select query")
+        };
+        assert_eq!(s.json, true);
     }
 }
