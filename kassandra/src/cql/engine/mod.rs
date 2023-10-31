@@ -9,7 +9,7 @@ pub mod kv;
 
 pub type RowsIterator<'a> = Box<dyn Iterator<Item = Vec<(String, CqlValue)>> + 'a>;
 
-pub trait Engine: Catalog + QueryCache {
+pub trait Engine: Catalog + QueryCache + 'static {
     fn insert(
         &mut self,
         keyspace: &str,

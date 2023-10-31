@@ -4,7 +4,7 @@ pub mod persisted;
 pub mod system;
 pub mod table;
 
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{btree_map::Entry, BTreeMap};
 
 use serde::{Deserialize, Serialize};
 
@@ -54,7 +54,7 @@ pub trait Catalog {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct Schema(pub HashMap<String, Keyspace>);
+pub struct Schema(pub BTreeMap<String, Keyspace>);
 
 impl Default for Schema {
     fn default() -> Self {

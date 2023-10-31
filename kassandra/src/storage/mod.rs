@@ -10,7 +10,7 @@ use std::ops::RangeBounds;
 
 use crate::cql::value::CqlValue;
 
-pub trait Storage: std::fmt::Debug + Send {
+pub trait Storage: std::fmt::Debug + Send + 'static {
     type RowIterator<'a>: Iterator<Item = (&'a String, &'a CqlValue)>
     where
         Self: 'a;

@@ -812,6 +812,6 @@ mod tests {
         let QueryString::Select(s) = query(q).unwrap() else {
             panic!("was supposed to be parsed as select query")
         };
-        assert_eq!(s.json, true);
+        assert!(s.json);
     }
 }

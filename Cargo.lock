@@ -737,6 +737,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -763,10 +772,11 @@ dependencies = [
  "eyre",
  "futures",
  "futures-util",
+ "insta",
  "integer-encoding",
  "nom",
  "num-bigint 0.4.4",
- "num_enum 0.6.1",
+ "num_enum",
  "ron",
  "seahash",
  "serde",
@@ -857,9 +867,9 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
 name = "lz4_flex"
-version = "0.9.5"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a8cbbb2831780bc3b9c15a41f5b49222ef756b6730a95f3decfdd15903eb5a3"
+checksum = "3ea9b256699eda7b0387ffbc776dd625e28bde3918446381781245b7a50349d8"
 dependencies = [
  "twox-hash",
 ]
@@ -991,32 +1001,11 @@ dependencies = [
 
 [[package]]
 name = "num_enum"
-version = "0.5.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f646caf906c20226733ed5b1374287eb97e3c2a5c227ce668c1f2ce20ae57c9"
-dependencies = [
- "num_enum_derive 0.5.11",
-]
-
-[[package]]
-name = "num_enum"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a015b430d3c108a207fd776d2e2196aaf8b1cf8cf93253e3a097ff3085076a1"
 dependencies = [
- "num_enum_derive 0.6.1",
-]
-
-[[package]]
-name = "num_enum_derive"
-version = "0.5.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcbff9bc912032c62bf65ef1d5aea88983b420f4f839db1e9b0c281a25c9c799"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
+ "num_enum_derive",
 ]
 
 [[package]]
@@ -1253,7 +1242,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5d2d8d10f3c6ded6da8b05b5fb3b8a5082514344d56c9f871412d29b4e075b4"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -1407,9 +1396,9 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "scylla"
-version = "0.8.2"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53b0771b8c0333f0dadd0d3f41a5ef2df5416c0b132a1e5297dfa0b1924406ef"
+checksum = "7b30067d0d0313a0bbcda9c31a503678f18dacd5426dd8a63c3f581cf80f5c30"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -1420,10 +1409,10 @@ dependencies = [
  "dashmap",
  "futures",
  "histogram",
- "itertools",
+ "itertools 0.11.0",
  "lz4_flex",
  "num-bigint 0.3.3",
- "num_enum 0.5.11",
+ "num_enum",
  "rand",
  "rand_pcg",
  "scylla-cql",
@@ -1441,9 +1430,9 @@ dependencies = [
 
 [[package]]
 name = "scylla-cql"
-version = "0.0.7"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7ed843e6c6a19c7a719f02f4d9d264beb00f2867d994442fd8b7d66f5af2781"
+checksum = "c9642864295085ef2fe62493eec405a109fbaae9f3a9b80ea087556af4a97df2"
 dependencies = [
  "async-trait",
  "bigdecimal 0.2.2",
@@ -1452,7 +1441,7 @@ dependencies = [
  "chrono",
  "lz4_flex",
  "num-bigint 0.3.3",
- "num_enum 0.5.11",
+ "num_enum",
  "scylla-macros",
  "snap",
  "thiserror",
