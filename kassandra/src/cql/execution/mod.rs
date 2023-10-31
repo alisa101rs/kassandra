@@ -1,15 +1,11 @@
-use std::{collections::HashMap, fmt};
+use std::fmt;
+
+pub use selector::{ColumnSelector, ColumnsSelector, Transform};
 
 use crate::{
     cql,
-    cql::{
-        plan::{Aggregate, Plan},
-        value::CqlValue,
-    },
-    frame::response::{
-        error::Error,
-        result::{ColumnSpec, QueryResult},
-    },
+    cql::plan::{Aggregate, Plan},
+    frame::response::{error::Error, result::QueryResult},
 };
 
 mod delete;
@@ -18,6 +14,7 @@ mod json;
 mod scan;
 mod schema;
 mod select;
+pub(crate) mod selector;
 
 pub use self::{
     delete::DeleteNode,
@@ -30,16 +27,6 @@ pub use self::{
 
 pub trait Executor<E: cql::Engine>: fmt::Debug {
     fn execute(self: Box<Self>, engine: &mut E) -> Result<QueryResult, Error>;
-}
-
-fn filter(row: Vec<(String, CqlValue)>, metadata: &[ColumnSpec]) -> Vec<Option<CqlValue>> {
-    let mut lookup: HashMap<String, CqlValue> = row.into_iter().collect();
-
-    metadata
-        .iter()
-        .map(|it| &it.name)
-        .map(|column| lookup.remove(column))
-        .collect()
 }
 
 impl<E: cql::Engine + 'static> dyn Executor<E> {

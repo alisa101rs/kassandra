@@ -34,7 +34,6 @@ impl<E: cql::Engine, N: Executor<E> + ?Sized> Executor<E> for JsonNode<N> {
         };
 
         let metadata = ResultMetadata {
-            col_count: 1,
             global_spec,
             paging_state,
             col_specs: vec![ColumnSpec {

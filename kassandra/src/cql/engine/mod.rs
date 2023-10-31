@@ -1,4 +1,4 @@
-use std::ops::RangeBounds;
+use std::{collections::BTreeMap, ops::RangeBounds};
 
 use crate::{
     cql::{query_cache::QueryCache, schema::Catalog, value::CqlValue},
@@ -7,7 +7,7 @@ use crate::{
 
 pub mod kv;
 
-pub type RowsIterator<'a> = Box<dyn Iterator<Item = Vec<(String, CqlValue)>> + 'a>;
+pub type RowsIterator<'a> = Box<dyn Iterator<Item = BTreeMap<String, CqlValue>> + 'a>;
 
 pub trait Engine: Catalog + QueryCache + 'static {
     fn insert(

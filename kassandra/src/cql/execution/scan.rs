@@ -5,7 +5,7 @@ use tracing::{instrument, Level};
 
 use crate::{
     cql,
-    cql::execution::Executor,
+    cql::execution::{selector, selector::ColumnsSelector, Executor},
     frame::response::{
         error::Error,
         result::{QueryResult, ResultMetadata, Row, Rows},
@@ -16,6 +16,7 @@ use crate::{
 pub struct ScanNode {
     pub keyspace: String,
     pub table: String,
+    pub selector: ColumnsSelector,
     pub metadata: ResultMetadata,
     pub range: Range<usize>,
 }
@@ -28,7 +29,7 @@ impl<E: cql::Engine> Executor<E> for ScanNode {
         let mut rows = vec![];
         for row in scan {
             rows.push(Row {
-                columns: super::filter(row, &self.metadata.col_specs),
+                columns: selector::filter(row, &self.selector),
             })
         }
 

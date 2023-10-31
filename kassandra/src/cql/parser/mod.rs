@@ -76,7 +76,7 @@ mod queries {
         branch::alt,
         bytes::complete::{tag, tag_no_case},
         character::complete::{multispace0, multispace1, u32},
-        combinator::{map, opt},
+        combinator::{map, opt, value},
         multi::{many_till, separated_list0, separated_list1},
         sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
         IResult,
@@ -84,10 +84,11 @@ mod queries {
 
     use super::{cassandra_type, identifier, ws};
     use crate::cql::{
+        functions::CqlFunction,
         literal::Literal,
         query::{
-            CreateKeyspaceQuery, CreateTableQuery, CreateTypeQuery, DeleteQuery, InsertQuery,
-            QueryString, QueryValue, SelectExpression, SelectQuery, WhereClosure,
+            ColumnSelector, CreateKeyspaceQuery, CreateTableQuery, CreateTypeQuery, DeleteQuery,
+            InsertQuery, QueryString, QueryValue, SelectExpression, SelectQuery, WhereClosure,
         },
         types::PreCqlType,
     };
@@ -102,8 +103,34 @@ mod queries {
     fn select_expression(input: &str) -> IResult<&str, SelectExpression> {
         let all = map(tag("*"), |_| SelectExpression::All);
 
+        // Column can be 4 cases:
+        // 1. plain column name `column`
+        // 2. aliased column: `column as name`
+        // 3. function applied to a column: `toJson(column)`
+        // 4. aliased function result: `toJson(column) as json`
+        let function = alt((
+            value(CqlFunction::ToJson, tag_no_case("toJson")),
+            value(CqlFunction::FromJson, tag_no_case("fromJson")),
+        ));
+        let column1 = map(identifier, |name| ColumnSelector {
+            name,
+            ..Default::default()
+        });
+        let column3 = pair(function, delimited(tag("("), identifier, tag(")")));
+        let column3 = map(column3, |(function, name)| ColumnSelector {
+            name,
+            function: Some(function),
+            ..Default::default()
+        });
+
+        let column = pair(
+            alt((column3, column1)),
+            opt(preceded(ws(tag_no_case("as")), identifier)),
+        );
+        let column = map(column, |(column, alias)| ColumnSelector { alias, ..column });
+
         let columns = map(
-            separated_list0(pair(tag(","), multispace0), identifier),
+            separated_list0(pair(tag(","), multispace0), column),
             SelectExpression::Columns,
         );
 
@@ -457,6 +484,13 @@ mod queries {
             }),
         ))
     }
+
+    #[test]
+    fn test_select_expression() {
+        let (r, p) = select_expression("a, toJson(x) as y, toJson(z), b").unwrap();
+        assert!(r.is_empty());
+        println!("{p:?}");
+    }
 }
 
 mod types {
@@ -685,7 +719,10 @@ mod literal {
 #[cfg(test)]
 mod tests {
     use super::query;
-    use crate::cql::query::QueryString;
+    use crate::cql::{
+        functions::CqlFunction,
+        query::{ColumnSelector, QueryString, SelectExpression, SelectQuery},
+    };
 
     #[test]
     fn test_select() {
@@ -813,5 +850,45 @@ mod tests {
             panic!("was supposed to be parsed as select query")
         };
         assert!(s.json);
+    }
+
+    #[test]
+    fn name_alias() {
+        let q = "SELECT field1 as field2 FROM table";
+        let QueryString::Select(SelectQuery {
+            columns: SelectExpression::Columns(c),
+            ..
+        }) = query(q).unwrap()
+        else {
+            panic!("was supposed to be parsed as select query")
+        };
+        assert_eq!(
+            c[0],
+            ColumnSelector {
+                name: "field1".to_string(),
+                alias: Some("field2".to_string()),
+                function: None,
+            }
+        )
+    }
+
+    #[test]
+    fn function() {
+        let q = "SELECT toJson(field1), field2 FROM table";
+        let QueryString::Select(SelectQuery {
+            columns: SelectExpression::Columns(c),
+            ..
+        }) = query(q).unwrap()
+        else {
+            panic!("was supposed to be parsed as select query")
+        };
+        assert_eq!(
+            c[0],
+            ColumnSelector {
+                name: "field1".to_string(),
+                alias: None,
+                function: Some(CqlFunction::ToJson),
+            }
+        )
     }
 }

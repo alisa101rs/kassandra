@@ -4,8 +4,14 @@ use crate::{
     cql::{
         column,
         column::{Column, ColumnKind},
-        execution::{AlterSchema, DeleteNode, InsertNode, PagingState, ScanNode, SelectNode},
+        execution,
+        execution::{
+            selector::{ColumnsSelector, Transform},
+            AlterSchema, DeleteNode, InsertNode, PagingState, ScanNode, SelectNode,
+        },
+        functions::CqlFunction,
         plan::{data_reader, Aggregate, Plan},
+        query,
         query::{
             CreateKeyspaceQuery, CreateTableQuery, DeleteQuery, InsertQuery, QueryString,
             QueryValue, SelectExpression, SelectQuery,
@@ -338,11 +344,13 @@ impl<C: Catalog> Planner<C> {
         let clustering_key = values.get_clustering_key_range()?;
 
         let metadata = metadata(&keyspace, &table, schema, &columns)?;
+        let selector = columns_selector(schema, columns)?;
 
         let node = SelectNode {
             keyspace,
             table,
             partition_key,
+            selector,
             clustering_key,
             metadata,
             limit: None,
@@ -407,11 +415,13 @@ impl<C: Catalog> Planner<C> {
         ))?;
 
         let metadata = metadata(&keyspace, &table, schema, &columns)?;
+        let selector = columns_selector(schema, columns)?;
 
         let node = ScanNode {
             keyspace,
             table,
             metadata,
+            selector,
             range: 0..500,
         };
 
@@ -432,32 +442,44 @@ fn metadata(
     schema: &TableSchema,
     columns: &SelectExpression,
 ) -> Result<ResultMetadata, DbError> {
-    let columns = match &columns {
-        SelectExpression::All => schema.columns.iter().collect::<Vec<_>>(),
-        SelectExpression::Columns(columns) => {
-            let mut c = vec![];
-            for column_name in columns {
-                let Some(column) = schema.columns.get(column_name) else {
-                    Err(DbError::Invalid)?
-                };
-                c.push((column_name, column));
-            }
-            c
-        }
+    let global_spec = Some(TableSpec {
+        ks_name: keyspace.to_owned(),
+        table_name: table.to_owned(),
+    });
+    let col_specs = match &columns {
+        SelectExpression::All => schema
+            .columns
+            .iter()
+            .map(|(name, c)| ColumnSpec::new(name.clone(), c.ty.clone()))
+            .collect(),
+        SelectExpression::Columns(columns) => columns
+            .iter()
+            .map(|it| resolve_column_spec(schema, it))
+            .collect::<Result<Vec<_>, _>>()?,
     };
 
     Ok(ResultMetadata {
-        col_count: columns.len(),
-        global_spec: Some(TableSpec {
-            ks_name: keyspace.to_owned(),
-            table_name: table.to_owned(),
-        }),
+        global_spec,
         paging_state: None,
-        col_specs: columns
-            .into_iter()
-            .map(|(name, c)| ColumnSpec::new(name.clone(), c.ty.clone()))
-            .collect(),
+        col_specs,
     })
+}
+
+fn resolve_column_spec(
+    schema: &TableSchema,
+    selector: &query::ColumnSelector,
+) -> Result<ColumnSpec, DbError> {
+    let Some(column) = schema.columns.get(&selector.name) else {
+        // Unknown column
+        return Err(DbError::Invalid);
+    };
+    let name = selector.alias.as_ref().unwrap_or(&selector.name).clone();
+    let ty = selector
+        .function
+        .map(|it| it.return_type(&column.ty))
+        .unwrap_or_else(|| column.ty.clone());
+
+    Ok(ColumnSpec::new(name, ty))
 }
 
 fn prepared_metadata(
@@ -528,4 +550,32 @@ fn create_table_schema(
         clustering_key: PrimaryKey::from_definition(clustering_keys),
         partitioner: None,
     }
+}
+
+fn columns_selector(
+    schema: &TableSchema,
+    selector: query::SelectExpression,
+) -> Result<ColumnsSelector, DbError> {
+    Ok(ColumnsSelector(match selector {
+        SelectExpression::All => schema
+            .columns.keys().map(|name| execution::ColumnSelector {
+                name: name.clone(),
+                transform: Transform::Identity,
+            })
+            .collect(),
+        SelectExpression::Columns(columns) => columns
+            .iter()
+            .map(|column| {
+                let transform = match column.function {
+                    None => Transform::Identity,
+                    Some(CqlFunction::ToJson) => Transform::ToJson,
+                    Some(_) => return Err(DbError::Invalid),
+                };
+                Ok(execution::ColumnSelector {
+                    name: column.name.clone(),
+                    transform,
+                })
+            })
+            .collect::<Result<_, _>>()?,
+    }))
 }

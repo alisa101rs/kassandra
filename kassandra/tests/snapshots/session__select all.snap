@@ -4,7 +4,6 @@ expression: rows
 ---
 Rows {
     metadata: ResultMetadata {
-        col_count: 3,
         global_spec: Some(
             TableSpec {
                 ks_name: "cycling",
@@ -28,6 +27,14 @@ Rows {
                 name: "lastname",
                 typ: Text,
             },
+            ColumnSpec {
+                table_spec: None,
+                name: "records",
+                typ: Map(
+                    Text,
+                    Text,
+                ),
+            },
         ],
     },
     rows: [
@@ -46,6 +53,28 @@ Rows {
                 Some(
                     Text(
                         "john",
+                    ),
+                ),
+                Some(
+                    Map(
+                        [
+                            (
+                                Text(
+                                    "f1",
+                                ),
+                                Text(
+                                    "120",
+                                ),
+                            ),
+                            (
+                                Text(
+                                    "f2",
+                                ),
+                                Text(
+                                    "126",
+                                ),
+                            ),
+                        ],
                     ),
                 ),
             ],

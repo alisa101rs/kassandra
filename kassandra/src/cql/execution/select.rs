@@ -5,7 +5,10 @@ use tracing::{instrument, Level};
 
 use crate::{
     cql,
-    cql::{execution::Executor, value::CqlValue},
+    cql::{
+        execution::{selector, ColumnsSelector, Executor},
+        value::CqlValue,
+    },
     frame::response::{
         error::Error,
         result::{QueryResult, ResultMetadata, Row, Rows},
@@ -18,6 +21,7 @@ pub struct SelectNode {
     pub table: String,
     pub partition_key: CqlValue,
     pub clustering_key: RangeInclusive<CqlValue>,
+    pub selector: ColumnsSelector,
     pub metadata: ResultMetadata,
     pub limit: Option<usize>,
     pub state: PagingState,
@@ -44,7 +48,7 @@ impl<E: cql::Engine> Executor<E> for SelectNode {
         let mut rows = vec![];
         for row in scan {
             rows.push(Row {
-                columns: super::filter(row, &self.metadata.col_specs),
+                columns: selector::filter(row, &self.selector),
             })
         }
 

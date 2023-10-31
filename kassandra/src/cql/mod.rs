@@ -1,5 +1,6 @@
 pub mod engine;
 pub mod execution;
+pub mod functions;
 pub mod parser;
 pub mod plan;
 pub mod query;

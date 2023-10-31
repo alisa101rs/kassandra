@@ -14,7 +14,12 @@ Rows {
         col_specs: [
             ColumnSpec {
                 table_spec: None,
-                name: "json",
+                name: "name",
+                typ: Text,
+            },
+            ColumnSpec {
+                table_spec: None,
+                name: "rec",
                 typ: Text,
             },
         ],
@@ -24,7 +29,12 @@ Rows {
             columns: [
                 Some(
                     Text(
-                        "{\"firstname\":\"johnson\",\"id\":1,\"lastname\":\"john\",\"records\":{\"f1\":\"120\",\"f2\":\"126\"}}",
+                        "smithson",
+                    ),
+                ),
+                Some(
+                    Text(
+                        "{\"f1\":\"120\",\"f2\":\"126\"}",
                     ),
                 ),
             ],

@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        toolchain: [nightly]
+        toolchain: [stable]
     steps:
       - uses: actions/checkout@v4
         with:

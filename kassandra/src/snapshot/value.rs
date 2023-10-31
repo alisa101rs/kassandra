@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use bigdecimal::BigDecimal;
 use derive_more::From;
 use num_bigint::BigInt;
-use serde::Serialize;
+use serde::{ser::SerializeMap, Serialize};
 use uuid::Uuid;
 
 use crate::cql::value::{CqlDuration, CqlValue};
@@ -33,7 +33,7 @@ pub enum ValueSnapshot {
     Timestamp(String),
     Inet(IpAddr),
     List(Vec<ValueSnapshot>),
-    Map(Vec<(ValueSnapshot, ValueSnapshot)>),
+    Map(#[serde(serialize_with = "as_map")] Vec<(ValueSnapshot, ValueSnapshot)>),
     #[from(ignore)]
     Set(Vec<ValueSnapshot>),
     UserDefinedType {
@@ -112,4 +112,15 @@ impl From<CqlValue> for ValueSnapshot {
             CqlValue::Empty => ValueSnapshot::Empty,
         }
     }
+}
+
+fn as_map<S>(value: &Vec<(ValueSnapshot, ValueSnapshot)>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let mut map = serializer.serialize_map(Some(value.len()))?;
+    for (k, v) in value {
+        map.serialize_entry(k, v)?;
+    }
+    map.end()
 }
