@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
 use eyre::Result;
 use nom::{
@@ -9,13 +9,19 @@ use nom::{
     error::ParseError,
     multi::{many0_count, separated_list1},
     sequence::{delimited, pair},
-    IResult,
+    IResult, Slice,
 };
 
-use crate::{cql::query::QueryString, frame::response::error::Error};
+use crate::{cql::query::QueryString, error::DbError, frame::response::error::Error};
 
 pub fn query(query: &str) -> Result<QueryString, Error> {
-    Ok(alt((
+    let query = if query.contains("/*") {
+        Cow::Owned(filter_comments(query)?)
+    } else {
+        Cow::Borrowed(query)
+    };
+
+    let result = alt((
         queries::use_query,
         queries::select_query,
         queries::insert_query,
@@ -24,8 +30,33 @@ pub fn query(query: &str) -> Result<QueryString, Error> {
         queries::create_keyspace_query,
         queries::create_table_query,
         queries::create_udt_query,
-    ))(query)
-    .map(|(_, it)| it)?)
+    ))(query.as_ref())
+    .map(|(_, it)| it)?;
+
+    Ok(result)
+}
+
+fn filter_comments(mut query: &str) -> Result<String, Error> {
+    let mut output = String::new();
+    let start = query
+        .find("/*")
+        .expect("for start of comment to be present");
+    output += query.slice(..start);
+    loop {
+        let Some(finish) = query.find("*/") else {
+            return Err(Error::new(DbError::Invalid, "Unfinished comment"));
+        };
+        query = &query[finish + 2..];
+
+        if let Some(start) = query.find("/*") {
+            output += &query[..start];
+        } else {
+            output += query;
+            break;
+        }
+    }
+
+    Ok(output)
 }
 
 impl FromStr for QueryString {
@@ -721,6 +752,7 @@ mod tests {
     use super::query;
     use crate::cql::{
         functions::CqlFunction,
+        parser::filter_comments,
         query::{ColumnSelector, QueryString, SelectExpression, SelectQuery},
     };
 
@@ -890,5 +922,18 @@ mod tests {
                 function: Some(CqlFunction::ToJson),
             }
         )
+    }
+
+    #[test]
+    fn test_filter_comments() {
+        let s = "hello /* blabla */ world /* blabla */!";
+        assert_eq!(filter_comments(s).unwrap(), "hello  world !");
+    }
+
+    #[test]
+    fn query_with_comment() {
+        let q = "SELECT table_name AS name,\n       comment,\n       bloom_filter_fp_chance,\n       toJson(caching) as caching,\n       /* cdc, */\n       toJson(compaction) as compaction,\n       toJson(compression) as compression,\n       crc_check_chance,\n       dclocal_read_repair_chance,\n       default_time_to_live,\n       speculative_retry,\n       /* additional_write_policy, */\n       gc_grace_seconds,\n       max_index_interval,\n       memtable_flush_period_in_ms,\n       min_index_interval,\n       read_repair_chance\nFROM system_schema.tables\nWHERE keyspace_name = ?";
+        let k = query(q).unwrap();
+        println!("{k:?}");
     }
 }

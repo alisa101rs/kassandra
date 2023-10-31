@@ -13,8 +13,8 @@ List of supported features:
 - [x] datastax cassandra driver support
 - [x] cqlsh driver
 - [x] jdbc driver
-- [ ] same aliases support (`select name as another name`)
-- [ ] json support ('select json *`, `select toJson(name) as smth`)
+- [x] same aliases support (`select name as another name`)
+- [x] json support ('select json *`, `select toJson(name) as smth`)
 - [x] basic queries support (create, insert/upsert, update, delete)
 - [x] batch queries support
 - [ ] UDTs
