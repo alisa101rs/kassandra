@@ -24,7 +24,7 @@ List of supported features:
 
 ## Kassandra Node
 [![nix](https://github.com/alisa101rs/kassandra/actions/workflows/nix.yml/badge.svg?branch=main)](https://github.com/alisa101rs/kassandra/actions/workflows/nix.yml)
-[![release](https://github.com/alisa101rs/kassandra/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/alisa101rs/kassandra/actions/workflows/release.yml)
+[![release](https://github.com/alisa101rs/kassandra/actions/workflows/release.yml/badge.svg)](https://github.com/alisa101rs/kassandra/actions/workflows/release.yml)
 
 In-memory, single node database implementation
 that supports cql v4 protocol.
