@@ -54,7 +54,7 @@ jobs:
         run: |
           mkdir $TARGET_NAME
           cp target/${{ matrix.target }}/release/kassandra-node $TARGET_NAME
-          cp README.md LICENSE $TARGET_NAME
+          cp README.md $TARGET_NAME
           zip -r $TARGET_NAME.zip $TARGET_NAME
 
       - name: Pack artifacts [Windows]
@@ -64,7 +64,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path ${env:TARGET_NAME}
           Copy-Item -Path "target\${{ matrix.target }}\release\kassandra-node.exe" -Destination ${env:TARGET_NAME}
-          Copy-Item -Path "README.md", "LICENSE" -Destination ${env:TARGET_NAME}
+          Copy-Item -Path "README.md" -Destination ${env:TARGET_NAME}
           Compress-Archive -Path ${env:TARGET_NAME} -DestinationPath "${env:TARGET_NAME}.zip"
 
       - name: Release
