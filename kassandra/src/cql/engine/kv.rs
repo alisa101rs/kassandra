@@ -29,11 +29,15 @@ pub struct KvEngine<S: Storage> {
 
 impl<S: Storage + Default> Default for KvEngine<S> {
     fn default() -> Self {
-        Self {
+        let mut storage = Self {
             data: S::default(),
             schema: PersistedSchema::default(),
             query_cache: PersistedQueryCache::default(),
-        }
+        };
+
+        PersistedSchema::persist_system_schema(&mut storage.data);
+
+        storage
     }
 }
 

@@ -11,7 +11,6 @@ use kassandra::{
 };
 use stable_eyre::Result;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
-use tracing::instrument;
 
 mod logging;
 
@@ -43,6 +42,17 @@ async fn main() -> Result<()> {
     Server::new(kassandra).serve(addr).await?;
 
     Ok(())
+}
+
+macro_rules! span {
+    ($name: tt) => {
+        tracing::info_span!(
+            $name,
+            error = Empty,
+            db.system = "cassandra",
+            span.kind = "server"
+        )
+    };
 }
 
 #[derive(Clone, Debug)]
@@ -115,46 +125,73 @@ impl Server {
         Ok(())
     }
 
-    #[instrument(skip(self))]
     fn request(&mut self, request: Request) -> Result<Response> {
+        use tracing::field::Empty;
         match request {
             Request::StartUp(options) => {
+                let span = span!("StartUp");
+                let _span = span.enter();
                 tracing::trace!(?options, "Starting client");
-                // todo check supported options
                 Ok(Response::Ready)
             }
-            Request::Options => Ok(Response::options()),
+            Request::Options => {
+                let span = span!("Options");
+                let _span = span.enter();
+                Ok(Response::options())
+            }
             Request::Query(query) => {
+                let span = span!("Query");
+                let _span = span.enter();
                 let mut kass = self.kassandra.lock().unwrap();
                 Ok(match kass.process(query) {
                     Ok(res) => Response::Result(res),
-                    Err(er) => Response::Error(er),
+                    Err(er) => {
+                        span.record("error", true);
+                        Response::Error(er)
+                    }
                 })
             }
             Request::Prepare(q) => {
+                let span = span!("Prepare");
+                let _span = span.enter();
                 let mut kass = self.kassandra.lock().unwrap();
                 Ok(match kass.prepare(q) {
                     Ok(res) => Response::Result(res),
-                    Err(er) => Response::Error(er),
+                    Err(er) => {
+                        span.record("error", true);
+                        Response::Error(er)
+                    }
                 })
             }
             Request::Execute(e) => {
+                let span = span!("Execute");
+                let _span = span.enter();
                 let mut kass = self.kassandra.lock().unwrap();
                 Ok(match kass.execute(e) {
                     Ok(res) => Response::Result(res),
-                    Err(er) => Response::Error(er),
+                    Err(er) => {
+                        span.record("error", true);
+                        Response::Error(er)
+                    }
                 })
             }
             Request::Register { events } => {
+                let span = span!("Register");
+                let _span = span.enter();
                 tracing::trace!(?events, "Client asked for events");
 
                 Ok(Response::Ready)
             }
             Request::Batch(b) => {
+                let span = span!("Batch");
+                let _span = span.enter();
                 let mut kass = self.kassandra.lock().unwrap();
                 Ok(match kass.process_batch(b) {
                     Ok(res) => Response::Result(res),
-                    Err(er) => Response::Error(er),
+                    Err(er) => {
+                        span.record("error", true);
+                        Response::Error(er)
+                    }
                 })
             }
             Request::AuthResponse => unimplemented!(),

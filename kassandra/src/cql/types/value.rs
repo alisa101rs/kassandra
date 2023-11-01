@@ -21,6 +21,8 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, From)]
 pub enum CqlValue {
     #[from(ignore)]
+    Tuple(Vec<CqlValue>),
+    #[from(ignore)]
     Ascii(String),
     Boolean(bool),
     Blob(Vec<u8>),
@@ -63,8 +65,6 @@ pub enum CqlValue {
     Time(i64),
     #[from(ignore)]
     Timeuuid(Uuid),
-    #[from(ignore)]
-    Tuple(Vec<CqlValue>),
     Uuid(Uuid),
     Varint(BigInt),
     #[from(types(()))]

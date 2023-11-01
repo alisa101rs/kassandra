@@ -395,13 +395,13 @@ system_table!(
     [table_name: ColumnType::Text],
     [
         additional_write_policy: ColumnType::Text,
-        bloom_filter_fp_change: ColumnType::Double,
+        bloom_filter_fp_chance: ColumnType::Double,
         caching: Map(Box::new(Text), Box::new(Text)),
         cdc: ColumnType::Boolean,
         comment: Text,
         compaction: Map(Box::new(Text), Box::new(Text)),
         compression: Map(Box::new(Text), Box::new(Text)),
-        crc_checkchance: Double,
+        crc_check_chance: Double,
         dclocal_read_repair_chance: Double,
         default_time_to_live: Int,
         extensions: Map(Box::new(Text), Box::new(Text)),
@@ -413,7 +413,7 @@ system_table!(
         memtable_flush_period_in_ms: Int,
         min_index_interval: Int,
         read_repair: Text,
-        read_repair_change: Double,
+        read_repair_chance: Double,
         speculative_retry: Text
     ]
 );
@@ -426,13 +426,13 @@ system_table!(
         additional_write_policy: ColumnType::Text,
         base_table_id: Uuid,
         base_table_name: Text,
-        bloom_filter_fp_change: ColumnType::Double,
+        bloom_filter_fp_chance: ColumnType::Double,
         caching: Map(Box::new(Text), Box::new(Text)),
         cdc: ColumnType::Boolean,
         comment: Text,
         compaction: Map(Box::new(Text), Box::new(Text)),
         compression: Map(Box::new(Text), Box::new(Text)),
-        crc_checkchance: Double,
+        crc_check_chance: Double,
         dclocal_read_repair_chance: Double,
         default_time_to_live: Int,
         extensions: Map(Box::new(Text), Box::new(Text)),
@@ -444,7 +444,7 @@ system_table!(
         memtable_flush_period_in_ms: Int,
         min_index_interval: Int,
         read_repair: Text,
-        read_repair_change: Double,
+        read_repair_chance: Double,
         speculative_retry: Text,
         where_clause: Text
     ]

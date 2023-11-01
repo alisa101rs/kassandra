@@ -6,6 +6,7 @@ use crate::{
         literal::Literal,
         schema::{
             keyspace::{Keyspace, Strategy},
+            system::{system_keyspace, system_schema_keyspace},
             Schema, Table, TableSchema,
         },
         value::CqlValue,
@@ -14,7 +15,6 @@ use crate::{
     error::DbError,
     frame::response::event::SchemaChangeEvent,
     storage,
-    storage::Storage,
 };
 
 #[derive(Debug, Clone, Serialize, Default, Deserialize)]
@@ -133,12 +133,22 @@ impl PersistedSchema {
 
         Ok(())
     }
+
+    pub(crate) fn persist_system_schema(storage: &mut impl storage::Storage) {
+        for (_, keyspace) in [system_keyspace(), system_schema_keyspace()] {
+            Self::insert_keyspace(storage, &keyspace).expect("system keyspace not to fail");
+            for table in keyspace.tables.values() {
+                Self::insert_table(storage, table).expect("system tables not to fail");
+                Self::insert_columns(storage, table).expect("system table not to fail");
+            }
+        }
+    }
 }
 
 impl PersistedSchema {
     pub(crate) fn create_keyspace(
         &mut self,
-        storage: &mut impl Storage,
+        storage: &mut impl storage::Storage,
         keyspace: String,
         ignore_existence: bool,
         replication: Strategy,
@@ -153,7 +163,7 @@ impl PersistedSchema {
 
     pub(crate) fn create_table(
         &mut self,
-        storage: &mut impl Storage,
+        storage: &mut impl storage::Storage,
         keyspace: String,
         table: String,
         ignore_existence: bool,
@@ -172,7 +182,7 @@ impl PersistedSchema {
     #[allow(dead_code)]
     fn create_type(
         &mut self,
-        _storage: &mut impl Storage,
+        _storage: &mut impl storage::Storage,
         _keyspace: Option<String>,
         _table: String,
         _columns: Vec<(String, String)>,

@@ -89,3 +89,15 @@ fn select_simple_data() {
 
     assert_debug_snapshot!("select single row", rows);
 }
+
+#[test]
+fn select_from_system_schema() {
+    let mut session = session();
+    let QueryResult::Rows(rows) = exec!(
+        session,
+        "select table_name from system_schema.tables where keyspace_name = 'cycling';"
+    ) else {
+        panic!("")
+    };
+    assert_eq!(rows.rows.len(), 1);
+}

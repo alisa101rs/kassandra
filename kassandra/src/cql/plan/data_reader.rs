@@ -88,13 +88,11 @@ impl<'a> DataPayload<'a> {
         let range = match &self.schema.clustering_key {
             PrimaryKey::Empty => CqlValue::Empty..=CqlValue::Empty,
             PrimaryKey::Simple(key) => {
-                let value = self
-                    .raw
-                    .get(key)
-                    .and_then(Clone::clone)
-                    .unwrap_or(CqlValue::Empty);
-
-                value..=CqlValue::Empty
+                if let Some(value) = self.raw.get(key).and_then(Clone::clone) {
+                    value..=CqlValue::Empty
+                } else {
+                    CqlValue::Tuple(vec![])..=CqlValue::Empty
+                }
             }
             PrimaryKey::Composite(keys) => {
                 let mut values = vec![];

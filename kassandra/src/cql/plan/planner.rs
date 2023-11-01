@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use tracing::{instrument, Level};
+
 use crate::{
     cql::{
         column,
@@ -43,6 +45,8 @@ impl<C: Catalog> Planner<C> {
             use_keyspace,
         }
     }
+
+    #[instrument(level = Level::TRACE, skip(self), err)]
     pub fn build(
         &mut self,
         statement: QueryString,
@@ -66,6 +70,7 @@ impl<C: Catalog> Planner<C> {
         }
     }
 
+    #[instrument(level = Level::TRACE, skip(self), err)]
     pub fn prepare(
         &mut self,
         statement: QueryString,
@@ -465,6 +470,7 @@ fn metadata(
     })
 }
 
+#[instrument(level = Level::TRACE, skip(schema), err)]
 fn resolve_column_spec(
     schema: &TableSchema,
     selector: &query::ColumnSelector,
@@ -482,6 +488,7 @@ fn resolve_column_spec(
     Ok(ColumnSpec::new(name, ty))
 }
 
+#[instrument(level = Level::TRACE, skip(schema, r#where), err)]
 fn prepared_metadata(
     keyspace: &str,
     table: &str,
@@ -552,13 +559,16 @@ fn create_table_schema(
     }
 }
 
+#[instrument(level = Level::TRACE, skip(schema), err)]
 fn columns_selector(
     schema: &TableSchema,
-    selector: query::SelectExpression,
+    selector: SelectExpression,
 ) -> Result<ColumnsSelector, DbError> {
     Ok(ColumnsSelector(match selector {
         SelectExpression::All => schema
-            .columns.keys().map(|name| execution::ColumnSelector {
+            .columns
+            .keys()
+            .map(|name| execution::ColumnSelector {
                 name: name.clone(),
                 transform: Transform::Identity,
             })
