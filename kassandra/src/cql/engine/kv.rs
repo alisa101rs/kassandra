@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     cql,
     cql::{
+        engine::RowsIterator,
         literal::Literal,
         query::QueryString,
         query_cache::PersistedQueryCache,
@@ -28,11 +29,15 @@ pub struct KvEngine<S: Storage> {
 
 impl<S: Storage + Default> Default for KvEngine<S> {
     fn default() -> Self {
-        Self {
+        let mut storage = Self {
             data: S::default(),
             schema: PersistedSchema::default(),
             query_cache: PersistedQueryCache::default(),
-        }
+        };
+
+        PersistedSchema::persist_system_schema(&mut storage.data);
+
+        storage
     }
 }
 
@@ -127,14 +132,14 @@ impl<S: Storage> cql::Engine for KvEngine<S> {
         table: &'a str,
         partition_key: &'a CqlValue,
         clustering_range: impl RangeBounds<CqlValue> + Clone + 'static,
-    ) -> Result<Box<dyn Iterator<Item = Vec<(String, CqlValue)>> + 'a>, Error> {
+    ) -> Result<RowsIterator<'a>, Error> {
         let scan = self
             .data
             .read(keyspace, table, partition_key, clustering_range)
             .map_err(|e| Error::new(DbError::Invalid, format!("{e}")))?;
 
         Ok(Box::new(scan.map(|row| {
-            row.map(|(k, v)| (k.clone(), v.clone())).collect::<Vec<_>>()
+            row.map(|(k, v)| (k.clone(), v.clone())).collect()
         })))
     }
 
@@ -143,7 +148,7 @@ impl<S: Storage> cql::Engine for KvEngine<S> {
         keyspace: &'a str,
         table: &'a str,
         range: impl RangeBounds<usize> + Clone + 'static,
-    ) -> Result<Box<dyn Iterator<Item = Vec<(String, CqlValue)>> + 'a>, Error> {
+    ) -> Result<RowsIterator<'a>, Error> {
         let scan = self
             .data
             .scan(keyspace, table, range)

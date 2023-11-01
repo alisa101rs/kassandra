@@ -3,7 +3,7 @@ use std::fmt;
 use derive_more::{Display, From};
 use serde::{Deserialize, Serialize};
 
-use crate::cql::{literal::Literal, types::PreCqlType};
+use crate::cql::{functions::CqlFunction, literal::Literal, types::PreCqlType};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Display, From)]
 pub enum QueryString {
@@ -37,6 +37,7 @@ pub struct SelectQuery {
     pub columns: SelectExpression,
     pub r#where: WhereClosure,
     pub limit: Option<usize>,
+    pub json: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Display)]
@@ -105,12 +106,51 @@ pub struct CreateTypeQuery {
     pub columns: Vec<(String, String)>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Display)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SelectExpression {
-    #[display(fmt = "*")]
     All,
-    #[display(fmt = "{}", "_0.join(\", \")")]
-    Columns(Vec<String>),
+    Columns(Vec<ColumnSelector>),
+}
+
+impl fmt::Display for SelectExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let columns = match self {
+            SelectExpression::All => return write!(f, "*"),
+            SelectExpression::Columns(c) => c,
+        };
+        for (column, last) in columns.iter().zip(
+            std::iter::repeat(false)
+                .take(columns.len() - 1)
+                .chain(Some(true)),
+        ) {
+            write!(f, "{}", column)?;
+            if !last {
+                write!(f, ",")?
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialOrd, PartialEq, Ord, Eq)]
+pub struct ColumnSelector {
+    pub name: String,
+    pub alias: Option<String>,
+    pub function: Option<CqlFunction>,
+}
+
+impl fmt::Display for ColumnSelector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(function) = &self.function {
+            write!(f, "{function}({})", self.name)?;
+        } else {
+            write!(f, "{}", self.name)?;
+        }
+        if let Some(alias) = &self.alias {
+            write!(f, " AS {alias}")?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

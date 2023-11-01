@@ -247,6 +247,6 @@ mod parse {
         let input: &[u8] = &[0u8, 1, 36, 0, 0, 19, 136, 0, 6, 8, 211, 160, 192, 75, 233];
         let (rest, _params) = query_parameters(input).unwrap();
 
-        assert_eq!(rest, &[]);
+        assert!(rest.is_empty());
     }
 }

@@ -1,0 +1,33 @@
+---
+source: kassandra/tests/session.rs
+expression: rows
+---
+Rows {
+    metadata: ResultMetadata {
+        global_spec: Some(
+            TableSpec {
+                ks_name: "cycling",
+                table_name: "cyclist_name",
+            },
+        ),
+        paging_state: None,
+        col_specs: [
+            ColumnSpec {
+                table_spec: None,
+                name: "json",
+                typ: Text,
+            },
+        ],
+    },
+    rows: [
+        Row {
+            columns: [
+                Some(
+                    Text(
+                        "{\"firstname\":\"johnson\",\"id\":1,\"lastname\":\"john\",\"records\":{\"f1\":\"120\",\"f2\":\"126\"}}",
+                    ),
+                ),
+            ],
+        },
+    ],
+}

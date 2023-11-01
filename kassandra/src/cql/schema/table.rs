@@ -1,4 +1,4 @@
-use std::{collections::HashMap, slice};
+use std::{collections::BTreeMap, slice};
 
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ pub struct Table {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TableSchema {
-    pub columns: HashMap<String, Column>,
+    pub columns: BTreeMap<String, Column>,
     pub partition_key: PrimaryKey,
     pub clustering_key: PrimaryKey,
     pub partitioner: Option<String>,

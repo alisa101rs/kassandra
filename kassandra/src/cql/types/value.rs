@@ -21,6 +21,8 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, From)]
 pub enum CqlValue {
     #[from(ignore)]
+    Tuple(Vec<CqlValue>),
+    #[from(ignore)]
     Ascii(String),
     Boolean(bool),
     Blob(Vec<u8>),
@@ -63,8 +65,6 @@ pub enum CqlValue {
     Time(i64),
     #[from(ignore)]
     Timeuuid(Uuid),
-    #[from(ignore)]
-    Tuple(Vec<CqlValue>),
     Uuid(Uuid),
     Varint(BigInt),
     #[from(types(()))]
@@ -344,6 +344,16 @@ pub fn map_lit(col: &ColumnType, lit: Literal) -> Result<CqlValue, Error> {
                 .map(|item| map_lit(item_ty, item))
                 .collect::<Result<_, _>>()?,
         )),
+        (ColumnType::Map(key, value_ty), Literal::Map(map)) if **key == ColumnType::Text => {
+            Ok(CqlValue::Map(
+                map.into_iter()
+                    .map(|(k, value)| {
+                        let value = map_lit(value_ty, value)?;
+                        Ok((CqlValue::Text(k), value))
+                    })
+                    .collect::<Result<_, Error>>()?,
+            ))
+        }
         (ty, lit) => {
             tracing::error!(?ty, ?lit, "Not implemented for pair");
             Err(Error::new(

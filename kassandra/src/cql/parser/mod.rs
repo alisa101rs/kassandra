@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
 use eyre::Result;
 use nom::{
@@ -9,13 +9,19 @@ use nom::{
     error::ParseError,
     multi::{many0_count, separated_list1},
     sequence::{delimited, pair},
-    IResult,
+    IResult, Slice,
 };
 
-use crate::{cql::query::QueryString, frame::response::error::Error};
+use crate::{cql::query::QueryString, error::DbError, frame::response::error::Error};
 
 pub fn query(query: &str) -> Result<QueryString, Error> {
-    Ok(alt((
+    let query = if query.contains("/*") {
+        Cow::Owned(filter_comments(query)?)
+    } else {
+        Cow::Borrowed(query)
+    };
+
+    let result = alt((
         queries::use_query,
         queries::select_query,
         queries::insert_query,
@@ -24,8 +30,33 @@ pub fn query(query: &str) -> Result<QueryString, Error> {
         queries::create_keyspace_query,
         queries::create_table_query,
         queries::create_udt_query,
-    ))(query)
-    .map(|(_, it)| it)?)
+    ))(query.as_ref())
+    .map(|(_, it)| it)?;
+
+    Ok(result)
+}
+
+fn filter_comments(mut query: &str) -> Result<String, Error> {
+    let mut output = String::new();
+    let start = query
+        .find("/*")
+        .expect("for start of comment to be present");
+    output += query.slice(..start);
+    loop {
+        let Some(finish) = query.find("*/") else {
+            return Err(Error::new(DbError::Invalid, "Unfinished comment"));
+        };
+        query = &query[finish + 2..];
+
+        if let Some(start) = query.find("/*") {
+            output += &query[..start];
+        } else {
+            output += query;
+            break;
+        }
+    }
+
+    Ok(output)
 }
 
 impl FromStr for QueryString {
@@ -76,7 +107,7 @@ mod queries {
         branch::alt,
         bytes::complete::{tag, tag_no_case},
         character::complete::{multispace0, multispace1, u32},
-        combinator::{map, opt},
+        combinator::{map, opt, value},
         multi::{many_till, separated_list0, separated_list1},
         sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
         IResult,
@@ -84,10 +115,11 @@ mod queries {
 
     use super::{cassandra_type, identifier, ws};
     use crate::cql::{
+        functions::CqlFunction,
         literal::Literal,
         query::{
-            CreateKeyspaceQuery, CreateTableQuery, CreateTypeQuery, DeleteQuery, InsertQuery,
-            QueryString, QueryValue, SelectExpression, SelectQuery, WhereClosure,
+            ColumnSelector, CreateKeyspaceQuery, CreateTableQuery, CreateTypeQuery, DeleteQuery,
+            InsertQuery, QueryString, QueryValue, SelectExpression, SelectQuery, WhereClosure,
         },
         types::PreCqlType,
     };
@@ -102,8 +134,34 @@ mod queries {
     fn select_expression(input: &str) -> IResult<&str, SelectExpression> {
         let all = map(tag("*"), |_| SelectExpression::All);
 
+        // Column can be 4 cases:
+        // 1. plain column name `column`
+        // 2. aliased column: `column as name`
+        // 3. function applied to a column: `toJson(column)`
+        // 4. aliased function result: `toJson(column) as json`
+        let function = alt((
+            value(CqlFunction::ToJson, tag_no_case("toJson")),
+            value(CqlFunction::FromJson, tag_no_case("fromJson")),
+        ));
+        let column1 = map(identifier, |name| ColumnSelector {
+            name,
+            ..Default::default()
+        });
+        let column3 = pair(function, delimited(tag("("), identifier, tag(")")));
+        let column3 = map(column3, |(function, name)| ColumnSelector {
+            name,
+            function: Some(function),
+            ..Default::default()
+        });
+
+        let column = pair(
+            alt((column3, column1)),
+            opt(preceded(ws(tag_no_case("as")), identifier)),
+        );
+        let column = map(column, |(column, alias)| ColumnSelector { alias, ..column });
+
         let columns = map(
-            separated_list0(pair(tag(","), multispace0), identifier),
+            separated_list0(pair(tag(","), multispace0), column),
             SelectExpression::Columns,
         );
 
@@ -121,7 +179,10 @@ mod queries {
     }
 
     pub fn select_query(input: &str) -> IResult<&str, QueryString> {
-        let (rest, _) = pair(alt((tag("select"), tag("SELECT"))), multispace1)(input)?;
+        let (rest, _) = terminated(tag_no_case("select"), multispace1)(input)?;
+        let (rest, json) = map(opt(terminated(tag_no_case("json"), multispace1)), |it| {
+            it.is_some()
+        })(rest)?;
 
         let (rest, columns) = select_expression(rest)?;
         let (rest, _) = delimited(multispace0, alt((tag("from"), tag("FROM"))), multispace0)(rest)?;
@@ -144,6 +205,7 @@ mod queries {
                 columns,
                 r#where: closure.unwrap_or_default(),
                 limit,
+                json,
             }),
         ))
     }
@@ -453,6 +515,13 @@ mod queries {
             }),
         ))
     }
+
+    #[test]
+    fn test_select_expression() {
+        let (r, p) = select_expression("a, toJson(x) as y, toJson(z), b").unwrap();
+        assert!(r.is_empty());
+        println!("{p:?}");
+    }
 }
 
 mod types {
@@ -681,7 +750,11 @@ mod literal {
 #[cfg(test)]
 mod tests {
     use super::query;
-    use crate::cql::query::QueryString;
+    use crate::cql::{
+        functions::CqlFunction,
+        parser::filter_comments,
+        query::{ColumnSelector, QueryString, SelectExpression, SelectQuery},
+    };
 
     #[test]
     fn test_select() {
@@ -800,5 +873,67 @@ mod tests {
         for q in qs {
             let _ = query(q).unwrap();
         }
+    }
+
+    #[test]
+    fn test_select_json() {
+        let q = "SELECT JSON field1,field2,field3 FROM table WHERE field0 = ? limit 500";
+        let QueryString::Select(s) = query(q).unwrap() else {
+            panic!("was supposed to be parsed as select query")
+        };
+        assert!(s.json);
+    }
+
+    #[test]
+    fn name_alias() {
+        let q = "SELECT field1 as field2 FROM table";
+        let QueryString::Select(SelectQuery {
+            columns: SelectExpression::Columns(c),
+            ..
+        }) = query(q).unwrap()
+        else {
+            panic!("was supposed to be parsed as select query")
+        };
+        assert_eq!(
+            c[0],
+            ColumnSelector {
+                name: "field1".to_string(),
+                alias: Some("field2".to_string()),
+                function: None,
+            }
+        )
+    }
+
+    #[test]
+    fn function() {
+        let q = "SELECT toJson(field1), field2 FROM table";
+        let QueryString::Select(SelectQuery {
+            columns: SelectExpression::Columns(c),
+            ..
+        }) = query(q).unwrap()
+        else {
+            panic!("was supposed to be parsed as select query")
+        };
+        assert_eq!(
+            c[0],
+            ColumnSelector {
+                name: "field1".to_string(),
+                alias: None,
+                function: Some(CqlFunction::ToJson),
+            }
+        )
+    }
+
+    #[test]
+    fn test_filter_comments() {
+        let s = "hello /* blabla */ world /* blabla */!";
+        assert_eq!(filter_comments(s).unwrap(), "hello  world !");
+    }
+
+    #[test]
+    fn query_with_comment() {
+        let q = "SELECT table_name AS name,\n       comment,\n       bloom_filter_fp_chance,\n       toJson(caching) as caching,\n       /* cdc, */\n       toJson(compaction) as compaction,\n       toJson(compression) as compression,\n       crc_check_chance,\n       dclocal_read_repair_chance,\n       default_time_to_live,\n       speculative_retry,\n       /* additional_write_policy, */\n       gc_grace_seconds,\n       max_index_interval,\n       memtable_flush_period_in_ms,\n       min_index_interval,\n       read_repair_chance\nFROM system_schema.tables\nWHERE keyspace_name = ?";
+        let k = query(q).unwrap();
+        println!("{k:?}");
     }
 }

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt};
+use std::{collections::BTreeMap, fmt};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -10,7 +10,7 @@ pub enum Literal {
     Float(f64),
     Uuid(Uuid),
     List(Vec<Literal>),
-    Map(HashMap<String, Literal>),
+    Map(BTreeMap<String, Literal>),
     Bool(bool),
     Null,
 }

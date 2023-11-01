@@ -145,7 +145,6 @@ bitflags! {
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct ResultMetadata {
-    pub col_count: usize,
     pub global_spec: Option<TableSpec>,
     pub paging_state: Option<Bytes>,
     pub col_specs: Vec<ColumnSpec>,
@@ -181,7 +180,7 @@ impl ResultMetadata {
         }
 
         buf.put_u32(flags.bits());
-        buf.put_u32(self.col_count as u32);
+        buf.put_u32(self.col_specs.len() as u32);
 
         if let Some(bytes) = &self.paging_state {
             write::bytes(buf, bytes.as_bytes());
@@ -257,7 +256,7 @@ impl PreparedMetadata {
     }
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Serialize)]
 pub struct Row {
     pub columns: Vec<Option<CqlValue>>,
 }
@@ -278,10 +277,9 @@ impl Row {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Rows {
     pub metadata: ResultMetadata,
-    //pub rows_count: usize,
     pub rows: Vec<Row>,
 }
 
@@ -289,10 +287,9 @@ impl Rows {
     pub fn serialize(&self, buf: &mut impl BufMut) {
         self.metadata.serialize(buf);
 
+        // rows_count serialization
         buf.put_u32(self.rows.len() as _);
         for row in &self.rows {
-            assert_eq!(self.metadata.col_count, row.columns.len());
-
             row.serialize(buf);
         }
     }

@@ -1,0 +1,83 @@
+---
+source: kassandra/tests/session.rs
+expression: rows
+---
+Rows {
+    metadata: ResultMetadata {
+        global_spec: Some(
+            TableSpec {
+                ks_name: "cycling",
+                table_name: "cyclist_name",
+            },
+        ),
+        paging_state: None,
+        col_specs: [
+            ColumnSpec {
+                table_spec: None,
+                name: "firstname",
+                typ: Text,
+            },
+            ColumnSpec {
+                table_spec: None,
+                name: "id",
+                typ: Int,
+            },
+            ColumnSpec {
+                table_spec: None,
+                name: "lastname",
+                typ: Text,
+            },
+            ColumnSpec {
+                table_spec: None,
+                name: "records",
+                typ: Map(
+                    Text,
+                    Text,
+                ),
+            },
+        ],
+    },
+    rows: [
+        Row {
+            columns: [
+                Some(
+                    Text(
+                        "johnson",
+                    ),
+                ),
+                Some(
+                    Int(
+                        1,
+                    ),
+                ),
+                Some(
+                    Text(
+                        "john",
+                    ),
+                ),
+                Some(
+                    Map(
+                        [
+                            (
+                                Text(
+                                    "f1",
+                                ),
+                                Text(
+                                    "120",
+                                ),
+                            ),
+                            (
+                                Text(
+                                    "f2",
+                                ),
+                                Text(
+                                    "126",
+                                ),
+                            ),
+                        ],
+                    ),
+                ),
+            ],
+        },
+    ],
+}

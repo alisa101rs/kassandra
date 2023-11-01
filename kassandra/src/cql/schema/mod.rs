@@ -4,8 +4,9 @@ pub mod persisted;
 pub mod system;
 pub mod table;
 
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{btree_map::Entry, BTreeMap};
 
+use derive_more::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 pub use self::{
@@ -52,9 +53,9 @@ pub trait Catalog {
     fn get_table(&self, keyspace: &str, table: &str) -> Option<&TableSchema>;
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Deref, DerefMut)]
 #[serde(transparent)]
-pub struct Schema(pub HashMap<String, Keyspace>);
+pub struct Schema(pub BTreeMap<String, Keyspace>);
 
 impl Default for Schema {
     fn default() -> Self {
