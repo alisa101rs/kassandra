@@ -36,6 +36,7 @@ impl Default for QueryParameters<'static> {
 }
 
 bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct QueryFlags: u8 {
         const VALUES                    = 0b0000001;
         const SKIP_METADATA             = 0b0000010;

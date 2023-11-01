@@ -136,6 +136,7 @@ impl ColumnSpec {
 }
 
 bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct ResultMetadataFlags: u32 {
         const GLOBAL_TABLES_SPEC = 0x1;
         const HAS_MORE_PAGES = 0x2;
