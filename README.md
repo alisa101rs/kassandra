@@ -1,5 +1,5 @@
 # Kassandra
-[![codecov](https://codecov.io/gh/alisa101rs/kassandra/graph/badge.svg?token=9GWCS5H23D)](https://codecov.io/gh/alisa101rs/kassandra)
+[![codecov](https://codecov.io/gh/alisa101rs/kassandra/graph/badge.svg?token=UZB0XQOHVP)](https://codecov.io/gh/alisa101rs/kassandra)
 [![kassandra](https://img.shields.io/crates/v/kassandra.svg)](https://crates.io/crates/kassandra)
 [![build](https://github.com/alisa101rs/kassandra/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/alisa101rs/kassandra/actions/workflows/rust.yml)
 
