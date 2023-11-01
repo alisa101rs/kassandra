@@ -18,7 +18,7 @@ futures = "0.3.28"
 futures-util = { version = "0.3.28", features = ["sink"] }
 nom = "7.1.3"
 bytes = { version = "1.4.0", features = ["serde"] }
-bitflags = "1"
+bitflags = "2"
 
 seahash = "4.1.0"
 thiserror = "1.0.40"
