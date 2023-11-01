@@ -17,7 +17,8 @@ pub mod value;
 pub mod write;
 
 bitflags! {
-    // Frame Flags
+    /// Frame Flags
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct FrameFlags: u8 {
         const COMPRESSION = 1 << 0;
         const TRACING = 1 << 1;
