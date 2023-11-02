@@ -1,5 +1,6 @@
-use std::{collections::BTreeMap, slice};
+use std::slice;
 
+use indexmap::map::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::cql::schema::Column;
@@ -13,7 +14,7 @@ pub struct Table {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TableSchema {
-    pub columns: BTreeMap<String, Column>,
+    pub columns: IndexMap<String, Column>,
     pub partition_key: PrimaryKey,
     pub clustering_key: PrimaryKey,
     pub partitioner: Option<String>,
