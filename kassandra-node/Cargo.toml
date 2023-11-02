@@ -14,7 +14,6 @@ futures = "0.3.28"
 futures-util = { version = "0.3.28", features = ["sink"] }
 clap = { version = "4.2.7", features = ["derive"] }
 stable-eyre = "0.2.2"
-serde_yaml = "0.9.21"
 
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

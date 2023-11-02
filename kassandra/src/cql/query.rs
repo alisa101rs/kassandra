@@ -23,6 +23,46 @@ pub enum QueryString {
     CreateType(CreateTypeQuery),
 }
 
+impl QueryString {
+    pub fn name(&self) -> &'static str {
+        match self {
+            QueryString::Select(_) => "select",
+            QueryString::Insert(_) => "insert",
+            QueryString::Delete(_) => "delete",
+            QueryString::Use { .. } => "use",
+            QueryString::CreateKeyspace(_) => "create keyspace",
+            QueryString::CreateTable(_) => "create table",
+            QueryString::CreateType(_) => "create type",
+        }
+    }
+
+    pub fn target(&self) -> String {
+        match self {
+            QueryString::Select(s) => {
+                format!("{}.{}", s.keyspace.as_deref().unwrap_or(""), s.table)
+            }
+            QueryString::Insert(s) => {
+                format!("{}.{}", s.keyspace.as_deref().unwrap_or(""), s.table)
+            }
+            QueryString::Delete(s) => {
+                format!("{}.{}", s.keyspace.as_deref().unwrap_or(""), s.table)
+            }
+            QueryString::Use { keyspace, .. } => {
+                format!("{}", keyspace)
+            }
+            QueryString::CreateKeyspace(s) => {
+                format!("{}", s.keyspace)
+            }
+            QueryString::CreateTable(s) => {
+                format!("{}.{}", s.keyspace.as_deref().unwrap_or(""), s.table)
+            }
+            QueryString::CreateType(s) => {
+                format!("{}", s.keyspace.as_deref().unwrap_or(""))
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Display)]
 #[display(
     fmt = "SELECT {} FROM {}.{} WHERE {}",

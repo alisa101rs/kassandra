@@ -53,7 +53,7 @@ impl<E: cql::Engine + Default> KassandraSession<E> {
 }
 
 impl<E: cql::Engine> KassandraSession<E> {
-    #[instrument(level = Level::TRACE, skip(self), err, ret)]
+    #[instrument(level = Level::TRACE, skip(self), fields(operation = query.query.name(), target = query.query.target()) err, ret)]
     pub fn process(&mut self, query: Query) -> Result<QueryResult, Error> {
         match query.query {
             QueryString::Use { keyspace } => {
