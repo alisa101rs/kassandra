@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use tracing::{instrument, Level};
 
 use crate::{
@@ -427,7 +425,7 @@ impl<C: Catalog> Planner<C> {
             table,
             metadata,
             selector,
-            range: 0..500,
+            range: 0..5000,
         };
 
         if select.json {
@@ -536,7 +534,7 @@ fn create_table_schema(
     partition_keys: Vec<String>,
     clustering_keys: Vec<String>,
 ) -> TableSchema {
-    let mut columns_res = BTreeMap::default();
+    let mut columns_res = Vec::new();
 
     for (column_name, column_type) in columns {
         let kind = if partition_keys.contains(&column_name) {
@@ -548,11 +546,11 @@ fn create_table_schema(
         };
         let ty = column::map_pre_type(column_type);
 
-        columns_res.insert(column_name, Column { ty, kind });
+        columns_res.push((column_name, Column { ty, kind }));
     }
 
     TableSchema {
-        columns: columns_res,
+        columns: columns_res.into_iter().collect(),
         partition_key: PrimaryKey::from_definition(partition_keys),
         clustering_key: PrimaryKey::from_definition(clustering_keys),
         partitioner: None,
