@@ -1,4 +1,5 @@
 use std::{
+    io,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -9,7 +10,7 @@ use kassandra::{
     frame::{request::Request, request_stream, response::Response, response_sink},
     KassandraSession,
 };
-use stable_eyre::Result;
+use stable_eyre::{eyre::Context, Result};
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 
 mod logging;
@@ -31,7 +32,20 @@ async fn main() -> Result<()> {
     stable_eyre::install()?;
     logging::setup_telemetry("kassandra")?;
     let Args { port, data } = Args::parse();
-    let state = data.map(std::fs::read).transpose()?;
+
+    let data = data.unwrap_or_else(|| "./kass.data.ron".into());
+
+    let state = std::fs::read(&data)
+        .map(Some)
+        .or_else(|err| {
+            if err.kind() == io::ErrorKind::NotFound {
+                Ok(None)
+            } else {
+                Err(err)
+            }
+        })
+        .context("reading state")?;
+
     let kassandra = state
         .map(|it| KassandraSession::load_state(&it))
         .transpose()?
@@ -39,7 +53,17 @@ async fn main() -> Result<()> {
     let addr = format!("0.0.0.0:{port}");
 
     tracing::info!(%addr, "Starting kassandra node");
-    Server::new(kassandra).serve(addr).await?;
+    let server = Server::new(kassandra);
+
+    tokio::select! {
+        _ = Server::serve(server.clone(), addr) => {},
+        _ = tokio::signal::ctrl_c() => {
+            tracing::info!(output.path = %data.display(), "Received SIG_TERM, saving state and closing server");
+            let kassandra = server.kassandra.lock().unwrap();
+            let state = kassandra.save_state();
+            std::fs::write(&data, state).context("saving state")?;
+        }
+    }
 
     Ok(())
 }
@@ -67,26 +91,9 @@ impl Server {
         }
     }
 
-    async fn serve(&mut self, addr: impl ToSocketAddrs) -> Result<()> {
+    async fn serve(self, addr: impl ToSocketAddrs) -> Result<()> {
         let listen = TcpListener::bind(addr).await?;
 
-        {
-            let s = self.clone();
-            tokio::spawn(async move {
-                match tokio::signal::ctrl_c().await {
-                    Ok(()) => {
-                        let state = { s.kassandra.lock().unwrap().data_snapshot() };
-                        let state = serde_yaml::to_string(&state).unwrap();
-
-                        tokio::fs::write("kass.data.yaml", state).await.unwrap();
-                        std::process::exit(0);
-                    }
-                    Err(err) => {
-                        eprintln!("Unable to listen for shutdown signal: {}", err);
-                    }
-                }
-            });
-        }
         loop {
             let Ok((stream, addr)) = listen.accept().await else {
                 continue;

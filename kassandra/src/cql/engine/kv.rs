@@ -24,6 +24,7 @@ use crate::{
 pub struct KvEngine<S: Storage> {
     pub data: S,
     schema: PersistedSchema,
+    #[serde(skip, default)]
     query_cache: PersistedQueryCache,
 }
 
