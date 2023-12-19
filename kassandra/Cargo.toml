@@ -1,8 +1,9 @@
 [package]
 name = "kassandra"
-version = "0.13.0"
+version = "0.13.1"
 authors = ["Alisa Gorelova <nanopro1g@gmail.com>"]
 description = "Single node cassandra implementation"
+repository = "https://github.com/alisa101rs/kassandra"
 license = "MIT"
 readme = "../README.md"
 edition = "2021"

@@ -26,7 +26,7 @@
              rustc = toolchain;
            }).buildRustPackage {
              pname = "kassandra-node";
-             version = "0.13.0";
+             version = "0.13.1";
 
              src = ./.;
              nativeBuildInputs = [

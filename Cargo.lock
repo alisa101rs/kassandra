@@ -763,7 +763,7 @@ dependencies = [
 
 [[package]]
 name = "kassandra"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "bigdecimal 0.4.2",
  "bitflags 2.4.1",
@@ -796,7 +796,7 @@ dependencies = [
 
 [[package]]
 name = "kassandra-node"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "clap",
  "futures",
@@ -815,7 +815,7 @@ dependencies = [
 
 [[package]]
 name = "kassandra-tester"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "eyre",
  "futures-util",
