@@ -214,7 +214,7 @@ pub fn deserialize_value(data: &[u8], col: &ColumnType) -> Result<CqlValue, Erro
             Ok(CqlValue::BigInt(v))
         }
         ColumnType::Text => {
-            let s = std::str::from_utf8(data).unwrap().to_string();
+            let s = String::from_utf8_lossy(data).into();
             Ok(CqlValue::Text(s))
         }
         ColumnType::Timestamp => {

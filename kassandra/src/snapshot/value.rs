@@ -1,4 +1,4 @@
-use std::net::IpAddr;
+use std::{cmp::Ordering, net::IpAddr};
 
 use bigdecimal::BigDecimal;
 use derive_more::From;
@@ -123,4 +123,12 @@ where
         map.serialize_entry(k, v)?;
     }
     map.end()
+}
+
+impl Eq for ValueSnapshot {}
+
+impl Ord for ValueSnapshot {
+    fn cmp(&self, other: &Self) -> Ordering {
+        <Self as PartialOrd>::partial_cmp(self, other).unwrap_or(Ordering::Equal)
+    }
 }
