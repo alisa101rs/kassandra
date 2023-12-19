@@ -48,16 +48,16 @@ impl QueryString {
                 format!("{}.{}", s.keyspace.as_deref().unwrap_or(""), s.table)
             }
             QueryString::Use { keyspace, .. } => {
-                format!("{}", keyspace)
+                keyspace.to_string()
             }
             QueryString::CreateKeyspace(s) => {
-                format!("{}", s.keyspace)
+                s.keyspace.to_string()
             }
             QueryString::CreateTable(s) => {
                 format!("{}.{}", s.keyspace.as_deref().unwrap_or(""), s.table)
             }
             QueryString::CreateType(s) => {
-                format!("{}", s.keyspace.as_deref().unwrap_or(""))
+                s.keyspace.as_deref().unwrap_or("").to_string()
             }
         }
     }
