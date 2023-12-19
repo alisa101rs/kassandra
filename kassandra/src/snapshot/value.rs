@@ -1,4 +1,4 @@
-use std::net::IpAddr;
+use std::{cmp::Ordering, net::IpAddr};
 
 use bigdecimal::BigDecimal;
 use derive_more::From;
@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::cql::value::{CqlDuration, CqlValue};
 
-#[derive(Clone, Debug, PartialEq, Serialize, PartialOrd, From)]
+#[derive(Clone, Debug, PartialEq, Serialize, From)]
 #[serde(untagged)]
 pub enum ValueSnapshot {
     #[from(ignore)]
@@ -123,4 +123,61 @@ where
         map.serialize_entry(k, v)?;
     }
     map.end()
+}
+
+impl Eq for ValueSnapshot {}
+
+impl Ord for ValueSnapshot {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (ValueSnapshot::Ascii(a), ValueSnapshot::Ascii(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Boolean(a), ValueSnapshot::Boolean(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Blob(a), ValueSnapshot::Blob(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Counter(a), ValueSnapshot::Counter(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Decimal(a), ValueSnapshot::Decimal(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Date(a), ValueSnapshot::Date(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Double(a), ValueSnapshot::Double(b)) => {
+                PartialOrd::partial_cmp(a, b).unwrap_or(Ordering::Equal)
+            }
+            (ValueSnapshot::Duration(a), ValueSnapshot::Duration(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Float(a), ValueSnapshot::Float(b)) => {
+                PartialOrd::partial_cmp(a, b).unwrap_or(Ordering::Equal)
+            }
+            (ValueSnapshot::Int(a), ValueSnapshot::Int(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::BigInt(a), ValueSnapshot::BigInt(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Text(a), ValueSnapshot::Text(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Timestamp(a), ValueSnapshot::Timestamp(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Inet(a), ValueSnapshot::Inet(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::List(a), ValueSnapshot::List(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Map(a), ValueSnapshot::Map(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Set(a), ValueSnapshot::Set(b)) => Ord::cmp(a, b),
+            (
+                ValueSnapshot::UserDefinedType {
+                    keyspace: _,
+                    type_name: _,
+                    fields: a,
+                },
+                ValueSnapshot::UserDefinedType {
+                    keyspace: _,
+                    type_name: _,
+                    fields: b,
+                },
+            ) => Ord::cmp(a, b),
+            (ValueSnapshot::SmallInt(a), ValueSnapshot::SmallInt(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::TinyInt(a), ValueSnapshot::TinyInt(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Time(a), ValueSnapshot::Time(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Timeuuid(a), ValueSnapshot::Timeuuid(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Tuple(a), ValueSnapshot::Tuple(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Uuid(a), ValueSnapshot::Uuid(b)) => Ord::cmp(a, b),
+            (ValueSnapshot::Varint(a), ValueSnapshot::Varint(b)) => Ord::cmp(a, b),
+            _ => Ordering::Equal,
+        }
+    }
+}
+
+impl PartialOrd for ValueSnapshot {
+    #[inline]
+    fn partial_cmp(&self, other: &ValueSnapshot) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
