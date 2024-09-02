@@ -5,10 +5,13 @@ use tracing::{instrument, Level};
 use uuid::uuid;
 
 use crate::{
-    cql,
     cql::{
-        engine::kv::KvEngine, execution::InsertNode, plan::Plan, query::QueryString,
-        value::CqlValue,
+        self,
+        engine::kv::KvEngine,
+        execution::InsertNode,
+        plan::Plan,
+        query::QueryString,
+        value::{ClusteringKeyValue, CqlValue, PartitionKeyValue},
     },
     error::DbError,
     frame::{
@@ -24,7 +27,7 @@ use crate::{
         },
     },
     snapshot::DataSnapshots,
-    storage::{memory, memory::Memory},
+    storage::memory::{self, Memory},
 };
 
 #[derive(Debug, Clone)]
@@ -190,8 +193,8 @@ fn init_session() -> Plan {
     Plan::Insert(InsertNode {
         keyspace: "system".to_string(),
         table: "local".to_string(),
-        partition_key: CqlValue::Text("local".to_owned()),
-        clustering_key: CqlValue::Empty,
+        partition_key: PartitionKeyValue::Simple(CqlValue::Text("local".to_owned())),
+        clustering_key: ClusteringKeyValue::Empty,
         values: vec![
             ("key".to_owned(), "local".to_owned().into()),
             ("bootstrapped".to_owned(), "COMPLETED".to_owned().into()),
@@ -212,11 +215,11 @@ fn init_session() -> Plan {
             ("cql_version".to_owned(), "4.1.0".to_owned().into()),
             (
                 "host_id".to_owned(),
-                CqlValue::Uuid(uuid!("aa1f1ae0-469d-4abf-ae3f-ecb7a17132fe")),
+                CqlValue::Uuid(uuid! {"aa1f1ae0-469d-4abf-ae3f-ecb7a17132fe"}),
             ),
             (
                 "schema_version".to_owned(),
-                CqlValue::Uuid(uuid!("0b1c3252-f787-4099-8594-157323b71789")),
+                CqlValue::Uuid(uuid! {"0b1c3252-f787-4099-8594-157323b71789"}),
             ),
             (
                 "rpc_address".to_owned(),

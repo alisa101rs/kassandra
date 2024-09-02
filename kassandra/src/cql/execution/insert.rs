@@ -1,8 +1,11 @@
 use serde::Serialize;
 
 use crate::{
-    cql,
-    cql::{execution::Executor, value::CqlValue},
+    cql::{
+        self,
+        execution::Executor,
+        value::{ClusteringKeyValue, CqlValue, PartitionKeyValue},
+    },
     frame::response::{error::Error, result::QueryResult},
 };
 
@@ -10,8 +13,8 @@ use crate::{
 pub struct InsertNode {
     pub keyspace: String,
     pub table: String,
-    pub partition_key: CqlValue,
-    pub clustering_key: CqlValue,
+    pub partition_key: PartitionKeyValue,
+    pub clustering_key: ClusteringKeyValue,
     pub values: Vec<(String, CqlValue)>,
 }
 

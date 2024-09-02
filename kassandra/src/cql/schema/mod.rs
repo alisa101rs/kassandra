@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 pub use self::{
     column::{Column, ColumnKind, ColumnType},
     persisted::PersistedSchema,
-    table::{PrimaryKey, Table, TableSchema},
+    table::{PrimaryKey, PrimaryKeyColumn, Table, TableSchema},
 };
 use crate::{
     cql::{

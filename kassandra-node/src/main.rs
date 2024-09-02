@@ -18,13 +18,13 @@ mod logging;
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Args {
-    /// Preload state from path
+    /// Port to listen connections for
     #[arg(short, long, default_value_t = 9044)]
     port: u16,
 
     /// Preload state from path
-    #[arg(short, long)]
-    data: Option<PathBuf>,
+    #[arg(short, long, default_value = "./kass.data.ron")]
+    data: PathBuf,
 }
 
 #[tokio::main]
@@ -32,8 +32,6 @@ async fn main() -> Result<()> {
     stable_eyre::install()?;
     logging::setup_telemetry("kassandra")?;
     let Args { port, data } = Args::parse();
-
-    let data = data.unwrap_or_else(|| "./kass.data.ron".into());
 
     let state = std::fs::read(&data)
         .map(Some)

@@ -1,8 +1,8 @@
 [package]
-name = "kassandra-node"
+name = "kassandra-proxy"
+description = "Proxy for CQL based databases"
 version.workspace = true
 authors.workspace = true
-description = "Single node kassandra implementation"
 repository.workspace = true
 license.workspace = true
 readme.workspace = true
@@ -10,6 +10,7 @@ edition.workspace = true
 keywords.workspace = true
 
 [dependencies]
+bytes = { version = "1.4.0", features = ["serde"] }
 kassandra = { path = "../kassandra" }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.8", features = ["codec"] }
@@ -17,6 +18,8 @@ futures = "0.3.28"
 futures-util = { version = "0.3.28", features = ["sink"] }
 clap = { version = "4.2.7", features = ["derive"] }
 stable-eyre = "0.2.2"
+parking_lot = "*"
+pin-project-lite = "*"
 
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

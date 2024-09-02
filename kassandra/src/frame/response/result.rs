@@ -1,11 +1,10 @@
 use bitflags::bitflags;
-use bytes::{BufMut, Bytes};
-use nom::AsBytes;
+use bytes::BufMut;
 use serde::Serialize;
 
 use crate::{
     cql::{column::ColumnType, value::CqlValue},
-    frame::{response::event::SchemaChangeEvent, write},
+    frame::{response::event::SchemaChangeEvent, value::PagingState, write},
 };
 
 #[derive(Debug)]
@@ -147,7 +146,7 @@ bitflags! {
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct ResultMetadata {
     pub global_spec: Option<TableSpec>,
-    pub paging_state: Option<Bytes>,
+    pub paging_state: Option<PagingState>,
     pub col_specs: Vec<ColumnSpec>,
 }
 
@@ -169,8 +168,8 @@ impl ResultMetadata {
             buf.put_u32(flags.bits());
             buf.put_u32(0);
 
-            if let Some(bytes) = &self.paging_state {
-                write::bytes(buf, bytes.as_bytes());
+            if let Some(state) = &self.paging_state {
+                PagingState::encode(state, buf);
             }
 
             return;
@@ -183,8 +182,8 @@ impl ResultMetadata {
         buf.put_u32(flags.bits());
         buf.put_u32(self.col_specs.len() as u32);
 
-        if let Some(bytes) = &self.paging_state {
-            write::bytes(buf, bytes.as_bytes());
+        if let Some(state) = &self.paging_state {
+            PagingState::encode(state, buf);
         }
 
         if let Some(spec) = &self.global_spec {

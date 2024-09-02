@@ -1,10 +1,13 @@
-use std::{collections::HashMap, ops::RangeInclusive};
+use std::collections::HashMap;
 
 use crate::{
     cql::{
         query::QueryValue,
         schema::{PrimaryKey, TableSchema},
-        value::{deserialize_value, map_lit, CqlValue},
+        value::{
+            deserialize_value, map_lit, ClusteringKeyValue, ClusteringKeyValueRange, CqlValue,
+            PartitionKeyValue,
+        },
     },
     error::DbError,
     frame::{response::error::Error, value::FrameValue},
@@ -27,16 +30,18 @@ impl<'a> DataPayload<'a> {
         })
     }
 
-    pub fn get_partition_key(&self) -> Result<CqlValue, Error> {
+    pub fn get_partition_key(&self) -> Result<PartitionKeyValue, Error> {
         Ok(match &self.schema.partition_key {
             PrimaryKey::Empty => unreachable!("Can't have empty primary key"),
             PrimaryKey::Simple(key) => {
-                self.raw
-                    .get(key)
-                    .ok_or(DbError::Invalid)? // partition key must be present
-                    .as_ref()
-                    .ok_or(DbError::Invalid)? // partition key value must not be null
-                    .clone()
+                PartitionKeyValue::Simple(
+                    self.raw
+                        .get(key)
+                        .ok_or(DbError::Invalid)? // partition key must be present
+                        .as_ref()
+                        .ok_or(DbError::Invalid)? // partition key value must not be null
+                        .clone(),
+                )
             }
             PrimaryKey::Composite(keys) => {
                 let mut values = vec![];
@@ -50,21 +55,21 @@ impl<'a> DataPayload<'a> {
 
                     values.push(value.clone());
                 }
-                CqlValue::Tuple(values)
+                PartitionKeyValue::Composite(values)
             }
         })
     }
 
-    pub fn get_clustering_key(&self) -> Result<CqlValue, Error> {
+    pub fn get_clustering_key(&self) -> Result<ClusteringKeyValue, Error> {
         Ok(match &self.schema.clustering_key {
-            PrimaryKey::Empty => CqlValue::Empty,
+            PrimaryKey::Empty => ClusteringKeyValue::Empty,
             PrimaryKey::Simple(key) => self
                 .raw
                 .get(key)
                 .ok_or(DbError::Invalid)?
                 .as_ref()
                 .cloned()
-                .unwrap_or(CqlValue::Empty),
+                .into(),
             PrimaryKey::Composite(keys) => {
                 let mut values = vec![];
 
@@ -73,25 +78,24 @@ impl<'a> DataPayload<'a> {
                         .raw
                         .get(key)
                         .ok_or(DbError::Invalid)? // clustering key must be present
-                        .clone()
-                        .unwrap_or(CqlValue::Empty);
+                        .clone();
 
-                    values.push(value.clone());
+                    values.push(value);
                 }
 
-                CqlValue::Tuple(values)
+                ClusteringKeyValue::Composite(values)
             }
         })
     }
 
-    pub fn get_clustering_key_range(&self) -> Result<RangeInclusive<CqlValue>, Error> {
+    pub fn get_clustering_key_range(&self) -> Result<ClusteringKeyValueRange, Error> {
         let range = match &self.schema.clustering_key {
-            PrimaryKey::Empty => CqlValue::Empty..=CqlValue::Empty,
+            PrimaryKey::Empty => (..).into(),
             PrimaryKey::Simple(key) => {
                 if let Some(value) = self.raw.get(key).and_then(Clone::clone) {
-                    value..=CqlValue::Empty
+                    (ClusteringKeyValue::Simple(Some(value))..).into()
                 } else {
-                    CqlValue::Tuple(vec![])..=CqlValue::Empty
+                    (..).into()
                 }
             }
             PrimaryKey::Composite(keys) => {
@@ -106,20 +110,20 @@ impl<'a> DataPayload<'a> {
                         "clustering key value must not be null",
                     ))?;
 
-                    values.push(value);
+                    values.push(Some(value));
                 }
 
                 let upper = {
                     let mut v = values.clone();
 
                     for _ in 0..(self.schema.clustering_key.count() - values.len()) {
-                        v.push(CqlValue::Empty)
+                        v.push(Some(CqlValue::Empty))
                     }
 
                     v
                 };
 
-                CqlValue::Tuple(values)..=CqlValue::Tuple(upper)
+                (ClusteringKeyValue::Composite(values)..ClusteringKeyValue::Composite(upper)).into()
             }
         };
 

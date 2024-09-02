@@ -1,10 +1,13 @@
 use std::{collections::HashMap, net::IpAddr};
 
-use bytes::BufMut;
+use bytes::{BufMut, Bytes, BytesMut};
 use nom::AsBytes;
 
 use crate::{
-    cql::{column::ColumnType, value::CqlValue},
+    cql::{
+        column::ColumnType,
+        value::{ClusteringKeyValue, CqlValue, PartitionKeyValue},
+    },
     frame::consistency::LegacyConsistency,
 };
 
@@ -149,125 +152,315 @@ pub(crate) fn opt_cql_value(buf: &mut impl BufMut, value: Option<&CqlValue>) {
         return;
     };
 
-    //let mut data = Vec::new();
-
-    {
-        //let buf = &mut data;
-        match value {
-            CqlValue::Ascii(v) => {
-                long_string(buf, v);
+    match value {
+        CqlValue::Ascii(v) => {
+            long_string(buf, v);
+        }
+        CqlValue::Boolean(b) => {
+            buf.put_u32(1);
+            buf.put_u8(*b as u8);
+        }
+        CqlValue::Blob(v) => {
+            bytes(buf, v.as_slice());
+        }
+        CqlValue::Counter(i) => {
+            bytes(buf, &i.to_be_bytes());
+        }
+        CqlValue::Decimal(_i) => {
+            unimplemented!()
+        }
+        CqlValue::Date(i) => {
+            bytes(buf, &i.to_be_bytes());
+        }
+        CqlValue::Double(f) => {
+            bytes(buf, &f.to_be_bytes());
+        }
+        CqlValue::Duration(_i) => {
+            unimplemented!()
+        }
+        CqlValue::Empty => {
+            buf.put_u32(0);
+        }
+        CqlValue::Float(v) => {
+            bytes(buf, &v.to_be_bytes());
+        }
+        CqlValue::Int(v) => {
+            bytes(buf, &v.to_be_bytes());
+        }
+        CqlValue::BigInt(v) => {
+            bytes(buf, &v.to_be_bytes());
+        }
+        CqlValue::Text(t) => {
+            long_string(buf, t);
+        }
+        CqlValue::Timestamp(v) => {
+            bytes(buf, &v.to_be_bytes());
+        }
+        CqlValue::Inet(v) => match v {
+            IpAddr::V4(ip) => {
+                buf.put_i32(4);
+                buf.put_slice(&ip.octets())
             }
-            CqlValue::Boolean(b) => {
-                buf.put_u32(1);
-                buf.put_u8(*b as u8);
+            IpAddr::V6(ip) => {
+                buf.put_i32(16);
+                buf.put_slice(&ip.octets());
             }
-            CqlValue::Blob(v) => {
-                bytes(buf, v.as_slice());
+        },
+        CqlValue::List(list) => {
+            let mut bytes = vec![];
+            for v in list {
+                opt_cql_value(&mut bytes, Some(v));
             }
-            CqlValue::Counter(i) => {
-                bytes(buf, &i.to_be_bytes());
+            buf.put_u32(4 + bytes.len() as u32);
+            buf.put_u32(list.len() as _);
+            buf.put_slice(bytes.as_slice());
+        }
+        CqlValue::Map(map) => {
+            let mut bytes = vec![];
+            for (k, v) in map {
+                opt_cql_value(&mut bytes, Some(k));
+                opt_cql_value(&mut bytes, Some(v));
             }
-            CqlValue::Decimal(_i) => {
-                unimplemented!()
+            buf.put_u32(4 + bytes.len() as u32);
+            buf.put_u32(map.len() as _);
+            buf.put_slice(bytes.as_slice());
+        }
+        CqlValue::Set(list) => {
+            let mut bytes = vec![];
+            for v in list {
+                opt_cql_value(&mut bytes, Some(v));
             }
-            CqlValue::Date(i) => {
-                bytes(buf, &i.to_be_bytes());
-            }
-            CqlValue::Double(f) => {
-                bytes(buf, &f.to_be_bytes());
-            }
-            CqlValue::Duration(_i) => {
-                unimplemented!()
-            }
-            CqlValue::Empty => {
-                buf.put_u32(0);
-            }
-            CqlValue::Float(v) => {
-                bytes(buf, &v.to_be_bytes());
-            }
-            CqlValue::Int(v) => {
-                bytes(buf, &v.to_be_bytes());
-            }
-            CqlValue::BigInt(v) => {
-                bytes(buf, &v.to_be_bytes());
-            }
-            CqlValue::Text(t) => {
-                long_string(buf, t);
-            }
-            CqlValue::Timestamp(v) => {
-                bytes(buf, &v.to_be_bytes());
-            }
-            CqlValue::Inet(v) => match v {
-                IpAddr::V4(ip) => {
-                    buf.put_i32(4);
-                    buf.put_slice(&ip.octets())
+            buf.put_u32(4 + bytes.len() as u32);
+            buf.put_u32(list.len() as _);
+            buf.put_slice(bytes.as_slice());
+        }
+        CqlValue::UserDefinedType { .. } => {
+            unimplemented!()
+        }
+        CqlValue::SmallInt(i) => {
+            bytes(buf, &i.to_be_bytes());
+        }
+        CqlValue::TinyInt(i) => {
+            bytes(buf, &i.to_be_bytes());
+        }
+        CqlValue::Time(i) => {
+            bytes(buf, &i.to_be_bytes());
+        }
+        CqlValue::Timeuuid(u) => {
+            bytes(buf, &u.as_u128().to_be_bytes());
+        }
+        CqlValue::Tuple(values) => {
+            for v in values {
+                if v == &CqlValue::Empty {
+                    buf.put_i32(-1);
+                    continue;
                 }
-                IpAddr::V6(ip) => {
-                    buf.put_i32(16);
-                    buf.put_slice(&ip.octets());
-                }
-            },
-            CqlValue::List(list) => {
-                let mut bytes = vec![];
-                for v in list {
-                    opt_cql_value(&mut bytes, Some(v));
-                }
-                buf.put_u32(4 + bytes.len() as u32);
-                buf.put_u32(list.len() as _);
-                buf.put_slice(bytes.as_slice());
-            }
-            CqlValue::Map(map) => {
-                let mut bytes = vec![];
-                for (k, v) in map {
-                    opt_cql_value(&mut bytes, Some(k));
-                    opt_cql_value(&mut bytes, Some(v));
-                }
-                buf.put_u32(4 + bytes.len() as u32);
-                buf.put_u32(map.len() as _);
-                buf.put_slice(bytes.as_slice());
-            }
-            CqlValue::Set(list) => {
-                let mut bytes = vec![];
-                for v in list {
-                    opt_cql_value(&mut bytes, Some(v));
-                }
-                buf.put_u32(4 + bytes.len() as u32);
-                buf.put_u32(list.len() as _);
-                buf.put_slice(bytes.as_slice());
-            }
-            CqlValue::UserDefinedType { .. } => {
-                unimplemented!()
-            }
-            CqlValue::SmallInt(i) => {
-                bytes(buf, &i.to_be_bytes());
-            }
-            CqlValue::TinyInt(i) => {
-                bytes(buf, &i.to_be_bytes());
-            }
-            CqlValue::Time(i) => {
-                bytes(buf, &i.to_be_bytes());
-            }
-            CqlValue::Timeuuid(u) => {
-                bytes(buf, &u.as_u128().to_be_bytes());
-            }
-            CqlValue::Tuple(_) => {
-                unimplemented!()
-            }
-            CqlValue::Uuid(u) => {
-                bytes(buf, &u.as_u128().to_be_bytes());
-            }
-            CqlValue::Varint(_) => {
-                unimplemented!()
+                let mut value = BytesMut::new();
+                opt_cql_value(&mut value, Some(v));
+                bytes(buf, value.as_bytes());
             }
         }
+        CqlValue::Uuid(u) => {
+            bytes(buf, &u.as_u128().to_be_bytes());
+        }
+        CqlValue::Varint(_) => {
+            unimplemented!()
+        }
+    }
+}
+
+fn cql_value_without_size(buf: &mut impl BufMut, value: &CqlValue) {
+    match value {
+        CqlValue::Ascii(v) => {
+            unsigned_varint(buf, v.len() as _);
+            buf.put_slice(v.as_bytes());
+        }
+        CqlValue::Boolean(b) => {
+            buf.put_u8(*b as u8);
+        }
+        CqlValue::Blob(v) => {
+            unsigned_varint(buf, v.len() as _);
+            buf.put_slice(v.as_bytes());
+        }
+        CqlValue::Counter(i) => {
+            buf.put_slice(&i.to_be_bytes());
+        }
+        CqlValue::Decimal(_i) => {
+            unimplemented!()
+        }
+        CqlValue::Date(i) => {
+            buf.put_slice(&i.to_be_bytes());
+        }
+        CqlValue::Double(f) => {
+            buf.put_slice(&f.to_be_bytes());
+        }
+        CqlValue::Duration(_i) => {
+            unimplemented!()
+        }
+        CqlValue::Empty => {}
+        CqlValue::Float(v) => {
+            buf.put_slice(&v.to_be_bytes());
+        }
+        CqlValue::Int(v) => {
+            buf.put_slice(&v.to_be_bytes());
+        }
+        CqlValue::BigInt(v) => {
+            buf.put_slice(&v.to_be_bytes());
+        }
+        CqlValue::Text(t) => {
+            unsigned_varint(buf, t.len() as _);
+            buf.put_slice(t.as_bytes());
+        }
+        CqlValue::Timestamp(v) => {
+            buf.put_slice(&v.to_be_bytes());
+        }
+        CqlValue::Inet(v) => match v {
+            IpAddr::V4(ip) => {
+                buf.put_u8(4);
+                buf.put_slice(&ip.octets())
+            }
+            IpAddr::V6(ip) => {
+                buf.put_u8(16);
+                buf.put_slice(&ip.octets());
+            }
+        },
+        CqlValue::List(list) | CqlValue::Set(list) => {
+            let mut bytes = vec![];
+            for v in list {
+                cql_value_without_size(&mut bytes, v);
+            }
+            unsigned_varint(buf, 4 + bytes.len() as u64);
+            unsigned_varint(buf, list.len() as _);
+            buf.put_slice(bytes.as_slice());
+        }
+        CqlValue::Map(map) => {
+            let mut bytes = vec![];
+            for (k, v) in map {
+                cql_value_without_size(&mut bytes, k);
+                cql_value_without_size(&mut bytes, v);
+            }
+            unsigned_varint(buf, 4 + bytes.len() as u64);
+            unsigned_varint(buf, map.len() as _);
+            buf.put_slice(bytes.as_slice());
+        }
+
+        CqlValue::SmallInt(i) => {
+            buf.put_slice(&i.to_be_bytes());
+        }
+        CqlValue::TinyInt(i) => {
+            buf.put_slice(&i.to_be_bytes());
+        }
+        CqlValue::Time(i) => {
+            buf.put_slice(&i.to_be_bytes());
+        }
+        CqlValue::Timeuuid(u) | CqlValue::Uuid(u) => {
+            buf.put_slice(&u.as_u128().to_be_bytes());
+        }
+        CqlValue::Tuple(values) => {
+            for v in values {
+                if v == &CqlValue::Empty {
+                    buf.put_i8(-1);
+                    continue;
+                }
+                cql_value_without_size(buf, v);
+            }
+        }
+        CqlValue::UserDefinedType { .. } => {
+            unimplemented!()
+        }
+        CqlValue::Varint(_) => {
+            unimplemented!()
+        }
+    }
+}
+
+pub(crate) fn clustering_value(buf: &mut impl BufMut, key: &ClusteringKeyValue) {
+    fn make_header<'a>(
+        buf: &mut impl BufMut,
+        values: &mut impl Iterator<Item = &'a Option<CqlValue>>,
+        offset: usize,
+        limit: usize,
+    ) {
+        let mut header: u64 = 0;
+        let mut i = offset;
+        for value in values.take(limit) {
+            header |= match value {
+                None => 1 << ((i * 2) + 1),
+                Some(CqlValue::Empty) => 1 << (i * 2),
+                _ => 0,
+            };
+            i += 1;
+        }
+        unsigned_varint(buf, header);
     }
 
-    //bytes(buf, data.as_slice());
+    let size = match key {
+        ClusteringKeyValue::Simple(_) => 1,
+        ClusteringKeyValue::Composite(v) => v.len(),
+        ClusteringKeyValue::Empty => return,
+    };
+    let mut offset = 0;
+    let mut values = key.into_iter();
+    let mut header_values = key.into_iter();
+
+    while offset < size {
+        make_header(buf, &mut header_values, offset, 32);
+
+        for value in (&mut values).take(32) {
+            offset += 1;
+            let value = match value {
+                None | Some(CqlValue::Empty) => {
+                    continue;
+                }
+                Some(v) => v,
+            };
+            cql_value_without_size(buf, value);
+        }
+    }
+}
+
+pub(crate) fn partition_value(buf: &mut impl BufMut, key: &PartitionKeyValue) {
+    for v in key {
+        cql_value_without_size(buf, v);
+    }
 }
 
 pub(crate) fn consistency(buf: &mut impl BufMut, consistency: &LegacyConsistency) {
     match *consistency {
         LegacyConsistency::Regular(r) => buf.put_i16(r.into()),
         LegacyConsistency::Serial(s) => buf.put_i16(s.into()),
+    }
+}
+
+pub(crate) fn unsigned_varint(buf: &mut impl BufMut, value: u64) {
+    use integer_encoding::VarIntWriter;
+
+    buf.writer().write_varint(value).unwrap();
+}
+
+pub(crate) fn opt_buffer_varint(buf: &mut impl BufMut, value: Option<&Bytes>) {
+    let Some(value) = value else {
+        unsigned_varint(buf, 0);
+        return;
+    };
+
+    unsigned_varint(buf, value.len() as u64);
+    buf.put_slice(value.as_bytes());
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::cql::value::{ClusteringKeyValue, CqlValue};
+
+    #[test]
+    fn serialize_clustering_value() {
+        let value = ClusteringKeyValue::Composite(vec![
+            Some(CqlValue::Ascii("998".to_owned())),
+            Some(CqlValue::Ascii("1".to_owned())),
+        ]);
+        let mut buf = vec![];
+        super::clustering_value(&mut buf, &value);
+
+        assert_eq!(buf, b"\0\x03998\x011");
     }
 }

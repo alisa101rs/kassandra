@@ -2,9 +2,10 @@ use std::ops::RangeBounds;
 
 use serde::{Deserialize, Serialize};
 
+use super::RowEntry;
 use crate::{
-    cql,
     cql::{
+        self,
         engine::RowsIterator,
         literal::Literal,
         query::QueryString,
@@ -13,7 +14,7 @@ use crate::{
             keyspace::{Keyspace, Strategy},
             PersistedSchema, Table, TableSchema,
         },
-        value::CqlValue,
+        value::{ClusteringKeyValue, CqlValue, PartitionKeyValue},
     },
     error::DbError,
     frame::response::{error::Error, event::SchemaChangeEvent},
@@ -100,8 +101,8 @@ impl<S: Storage> cql::Engine for KvEngine<S> {
         &mut self,
         keyspace: &str,
         table: &str,
-        partition_key: CqlValue,
-        clustering_key: CqlValue,
+        partition_key: PartitionKeyValue,
+        clustering_key: ClusteringKeyValue,
         values: Vec<(String, CqlValue)>,
     ) -> Result<(), Error> {
         self.data
@@ -119,8 +120,8 @@ impl<S: Storage> cql::Engine for KvEngine<S> {
         &mut self,
         keyspace: &str,
         table: &str,
-        partition_key: CqlValue,
-        clustering_key: CqlValue,
+        partition_key: PartitionKeyValue,
+        clustering_key: ClusteringKeyValue,
     ) -> Result<(), Error> {
         self.data
             .delete(keyspace, table, &partition_key, &clustering_key)
@@ -131,32 +132,38 @@ impl<S: Storage> cql::Engine for KvEngine<S> {
         &'a mut self,
         keyspace: &'a str,
         table: &'a str,
-        partition_key: &'a CqlValue,
-        clustering_range: impl RangeBounds<CqlValue> + Clone + 'static,
+        partition_key: &'a PartitionKeyValue,
+        clustering_range: impl RangeBounds<ClusteringKeyValue> + Clone + 'static,
     ) -> Result<RowsIterator<'a>, Error> {
         let scan = self
             .data
             .read(keyspace, table, partition_key, clustering_range)
             .map_err(|e| Error::new(DbError::Invalid, format!("{e}")))?;
-
-        Ok(Box::new(scan.map(|row| {
-            row.map(|(k, v)| (k.clone(), v.clone())).collect()
-        })))
+        let iter = scan.map(|row| RowEntry {
+            partition: partition_key.clone(),
+            clustering: row.clustering.clone(),
+            row: row.row.map(|(k, v)| (k.clone(), v.clone())).collect(),
+        });
+        Ok(Box::new(iter))
     }
 
     fn scan<'a>(
         &'a mut self,
         keyspace: &'a str,
         table: &'a str,
-        range: impl RangeBounds<usize> + Clone + 'static,
+        range: impl RangeBounds<PartitionKeyValue> + Clone + 'static,
     ) -> Result<RowsIterator<'a>, Error> {
         let scan = self
             .data
             .scan(keyspace, table, range)
             .map_err(|e| Error::new(DbError::Invalid, format!("{e}")))?;
 
-        Ok(Box::new(scan.map(|row| {
-            row.map(|(k, v)| (k.clone(), v.clone())).collect()
-        })))
+        let iter = scan.map(|row| RowEntry {
+            partition: row.partition.clone(),
+            clustering: row.clustering.clone(),
+            row: row.row.map(|(k, v)| (k.clone(), v.clone())).collect(),
+        });
+
+        Ok(Box::new(iter))
     }
 }

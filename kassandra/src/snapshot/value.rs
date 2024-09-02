@@ -6,7 +6,7 @@ use num_bigint::BigInt;
 use serde::{ser::SerializeMap, Serialize};
 use uuid::Uuid;
 
-use crate::cql::value::{CqlDuration, CqlValue};
+use crate::cql::value::{ClusteringKeyValue, CqlDuration, CqlValue, PartitionKeyValue};
 
 #[derive(Clone, Debug, PartialEq, Serialize, From)]
 #[serde(untagged)]
@@ -110,6 +110,32 @@ impl From<CqlValue> for ValueSnapshot {
                     .collect(),
             },
             CqlValue::Empty => ValueSnapshot::Empty,
+        }
+    }
+}
+
+impl From<ClusteringKeyValue> for ValueSnapshot {
+    fn from(value: ClusteringKeyValue) -> Self {
+        match value {
+            ClusteringKeyValue::Simple(v) => v.map(Into::into).unwrap_or(ValueSnapshot::Empty),
+            ClusteringKeyValue::Composite(vs) => ValueSnapshot::Tuple(
+                vs.into_iter()
+                    .map(|it| it.map(Into::into).unwrap_or(ValueSnapshot::Empty))
+                    .collect(),
+            ),
+            ClusteringKeyValue::Empty => ValueSnapshot::Empty,
+        }
+    }
+}
+
+impl From<PartitionKeyValue> for ValueSnapshot {
+    fn from(value: PartitionKeyValue) -> Self {
+        match value {
+            PartitionKeyValue::Simple(v) => v.into(),
+            PartitionKeyValue::Composite(vs) => {
+                ValueSnapshot::Tuple(vs.into_iter().map(|it| it.into()).collect())
+            }
+            PartitionKeyValue::Empty => ValueSnapshot::Empty,
         }
     }
 }

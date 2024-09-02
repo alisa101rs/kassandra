@@ -93,11 +93,10 @@ pub fn cassandra_type(input: &str) -> IResult<&str, String> {
     map(recognize(pair(ident, generics)), |it: &str| it.to_owned())(input)
 }
 
-pub fn ws<'a, F: 'a, O, E: ParseError<&'a str>>(
-    inner: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+pub fn ws<'a, F, O, E>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
 where
-    F: FnMut(&'a str) -> IResult<&'a str, O, E>,
+    F: FnMut(&'a str) -> IResult<&'a str, O, E> + 'a,
+    E: ParseError<&'a str>,
 {
     delimited(multispace0, inner, multispace0)
 }

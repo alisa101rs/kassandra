@@ -17,12 +17,8 @@ mod select;
 pub(crate) mod selector;
 
 pub use self::{
-    delete::DeleteNode,
-    insert::InsertNode,
-    json::JsonNode,
-    scan::ScanNode,
-    schema::AlterSchema,
-    select::{PagingState, SelectNode},
+    delete::DeleteNode, insert::InsertNode, json::JsonNode, scan::ScanNode, schema::AlterSchema,
+    select::SelectNode,
 };
 
 pub trait Executor<E: cql::Engine>: fmt::Debug {

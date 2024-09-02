@@ -5,7 +5,7 @@ use crate::{
     frame::{
         consistency::{Consistency, SerialConsistency},
         response::error::Error,
-        value::FrameValue,
+        value::{FrameValue, PagingState},
         FrameFlags,
     },
 };
@@ -16,7 +16,7 @@ pub struct QueryParameters<'a> {
     pub flags: QueryFlags,
     pub data: Vec<FrameValue<'a>>,
     pub result_page_size: Option<usize>,
-    pub paging_state: Option<PagingState<'a>>,
+    pub paging_state: Option<PagingState>,
     pub serial_consistency: SerialConsistency,
     pub default_timestamp: Option<i64>,
 }
@@ -48,15 +48,6 @@ bitflags! {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct PagingState<'a> {
-    partition_key: Option<&'a [u8]>,
-    row_mark: Option<&'a [u8]>,
-    remaining: usize,
-    remaining_in_partition: usize,
-}
-
 impl<'a> QueryParameters<'a> {
     pub fn parse(input: &'a [u8], _flags: FrameFlags) -> Result<Self, Error> {
         parse::query_parameters(input)
@@ -71,11 +62,10 @@ impl<'a> QueryParameters<'a> {
 }
 
 mod parse {
-
-    use integer_encoding::VarIntReader;
+    use bytes::Bytes;
     use nom::{
         branch::alt,
-        bytes::complete::{tag, take},
+        bytes::complete::tag,
         combinator::{map, recognize},
         error::{Error, ErrorKind},
         multi::count,
@@ -210,33 +200,18 @@ mod parse {
         }
     }
 
-    fn paging_state(input: &[u8]) -> IResult<&[u8], PagingState<'_>> {
-        fn unsigned_vint(mut input: &[u8]) -> IResult<&[u8], u32> {
-            let int = input
-                .read_varint()
-                .map_err(|_| nom::Err::Error(Error::new(input, ErrorKind::LengthValue)))?;
-            Ok((input, int))
-        }
-        fn bytes_with_vint(input: &[u8]) -> IResult<&[u8], Option<&[u8]>> {
-            let (rest, len) = unsigned_vint(input)?;
-
-            if len == 0 {
-                return Ok((input, None));
-            }
-
-            map(take(len as usize), Some)(rest)
-        }
-
-        let (rest, partition_key) = bytes_with_vint(input)?;
-        let (rest, row_mark) = bytes_with_vint(rest)?;
-        let (rest, remaining) = map(unsigned_vint, |it| it as _)(rest)?;
-        let (rest, remaining_in_partition) = map(unsigned_vint, |it| it as _)(rest)?;
+    // Ref: https://github.com/apache/cassandra/blob/trunk/src/java/org/apache/cassandra/service/pager/PagingState.java
+    fn paging_state(input: &[u8]) -> IResult<&[u8], PagingState> {
+        let (rest, partition_key) = parse::bytes_with_vint(input)?;
+        let (rest, row_mark) = parse::bytes_with_vint(rest)?;
+        let (rest, remaining) = map(parse::unsigned_vint, |it| it as _)(rest)?;
+        let (rest, remaining_in_partition) = map(parse::unsigned_vint, |it| it as _)(rest)?;
 
         Ok((
             rest,
             PagingState {
-                partition_key,
-                row_mark,
+                partition_key: partition_key.map(Bytes::copy_from_slice),
+                row_mark: row_mark.map(Bytes::copy_from_slice),
                 remaining,
                 remaining_in_partition,
             },

@@ -9,7 +9,7 @@ use crate::{
             system::{system_keyspace, system_schema_keyspace},
             Schema, Table, TableSchema,
         },
-        value::CqlValue,
+        value::{ClusteringKeyValue, CqlValue, PartitionKeyValue},
         Catalog,
     },
     error::DbError,
@@ -43,8 +43,8 @@ impl PersistedSchema {
             .write(
                 "system_schema",
                 "keyspaces",
-                pk.clone(),
-                CqlValue::Empty,
+                pk.clone().into(),
+                ClusteringKeyValue::Empty,
                 [
                     ("keyspace_name".to_owned(), pk),
                     ("durable_writes".to_owned(), CqlValue::Boolean(true)),
@@ -64,8 +64,8 @@ impl PersistedSchema {
             .write(
                 "system_schema",
                 "tables",
-                pk.clone(),
-                ck.clone(),
+                PartitionKeyValue::Simple(pk.clone()),
+                ClusteringKeyValue::Simple(Some(ck.clone())),
                 [
                     ("keyspace_name".to_owned(), pk),
                     ("table_name".to_owned(), ck),
@@ -108,8 +108,8 @@ impl PersistedSchema {
                 .write(
                     "system_schema",
                     "columns",
-                    pk.clone(),
-                    ck.clone(),
+                    pk.clone().into(),
+                    ClusteringKeyValue::Simple(Some(ck.clone())),
                     [
                         ("keyspace_name".to_owned(), pk.clone()),
                         ("table_name".to_owned(), table.name.clone().into()),

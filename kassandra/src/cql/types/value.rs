@@ -1,6 +1,7 @@
 use std::{
     hash::{Hash, Hasher},
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    ops::RangeBounds,
     str::FromStr,
 };
 
@@ -18,7 +19,7 @@ use crate::{
     frame::{parse, response::error::Error},
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, From)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, From)]
 pub enum CqlValue {
     #[from(ignore)]
     Tuple(Vec<CqlValue>),
@@ -67,6 +68,7 @@ pub enum CqlValue {
     Timeuuid(Uuid),
     Uuid(Uuid),
     Varint(BigInt),
+    #[default]
     #[from(types(()))]
     Empty,
 }
@@ -301,8 +303,21 @@ pub fn deserialize_value(data: &[u8], col: &ColumnType) -> Result<CqlValue, Erro
         ColumnType::Timeuuid => {
             todo!()
         }
-        ColumnType::Tuple(_) => {
-            todo!()
+        ColumnType::Tuple(types) => {
+            let mut result = vec![];
+            let mut rest = data;
+            let mut value;
+            for ty in types {
+                (rest, value) = parse::bytes_opt(rest)?;
+                let Some(value) = value else {
+                    result.push(CqlValue::Empty);
+                    continue;
+                };
+                let (_, value) = opt_deserialize_value(value, ty)?;
+                result.push(value.unwrap_or_default());
+            }
+
+            Ok(CqlValue::Tuple(result))
         }
         ColumnType::Uuid => {
             let (_, v) = be_u128::<_, nom::error::Error<_>>(data)?;
@@ -364,9 +379,193 @@ pub fn map_lit(col: &ColumnType, lit: Literal) -> Result<CqlValue, Error> {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, From)]
+pub enum ClusteringKeyValue {
+    Simple(Option<CqlValue>),
+    Composite(Vec<Option<CqlValue>>),
+
+    #[default]
+    #[from(types(()))]
+    Empty,
+}
+
+impl From<CqlValue> for ClusteringKeyValue {
+    fn from(value: CqlValue) -> Self {
+        match value {
+            CqlValue::Empty => Self::Empty,
+            CqlValue::Tuple(values) => Self::Composite(values.into_iter().map(Some).collect()),
+            _ => Self::Simple(Some(value)),
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a ClusteringKeyValue {
+    type Item = &'a Option<CqlValue>;
+
+    type IntoIter = std::slice::Iter<'a, Option<CqlValue>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            ClusteringKeyValue::Simple(v) => std::slice::from_ref(v).iter(),
+            ClusteringKeyValue::Composite(vs) => vs.as_slice().iter(),
+            ClusteringKeyValue::Empty => [].iter(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum ClusteringKeyValueRange {
+    Full,
+    From(ClusteringKeyValue),
+    To(ClusteringKeyValue),
+    Range(ClusteringKeyValue, ClusteringKeyValue),
+}
+
+impl ClusteringKeyValueRange {
+    pub fn from(self, left: ClusteringKeyValue) -> Self {
+        match self {
+            Self::Full => Self::From(left),
+            Self::From(old) if old < left => Self::From(left),
+            Self::From(_) => self,
+            Self::To(right) => Self::Range(left, right),
+            Self::Range(old, right) if old < left => Self::Range(left, right),
+            Self::Range(_, _) => self,
+        }
+    }
+}
+
+impl RangeBounds<ClusteringKeyValue> for ClusteringKeyValueRange {
+    fn start_bound(&self) -> std::ops::Bound<&ClusteringKeyValue> {
+        match self {
+            ClusteringKeyValueRange::Full => std::ops::Bound::Unbounded,
+            ClusteringKeyValueRange::From(v) => std::ops::Bound::Included(v),
+            ClusteringKeyValueRange::To(_) => std::ops::Bound::Unbounded,
+            ClusteringKeyValueRange::Range(v, _) => std::ops::Bound::Included(v),
+        }
+    }
+
+    fn end_bound(&self) -> std::ops::Bound<&ClusteringKeyValue> {
+        match self {
+            ClusteringKeyValueRange::Full => std::ops::Bound::Unbounded,
+            ClusteringKeyValueRange::From(_) => std::ops::Bound::Unbounded,
+            ClusteringKeyValueRange::To(v) => std::ops::Bound::Included(v),
+            ClusteringKeyValueRange::Range(_, v) => std::ops::Bound::Included(v),
+        }
+    }
+}
+
+impl From<std::ops::Range<ClusteringKeyValue>> for ClusteringKeyValueRange {
+    fn from(value: std::ops::Range<ClusteringKeyValue>) -> Self {
+        ClusteringKeyValueRange::Range(value.start, value.end)
+    }
+}
+
+impl From<std::ops::RangeFull> for ClusteringKeyValueRange {
+    fn from(_: std::ops::RangeFull) -> Self {
+        ClusteringKeyValueRange::Full
+    }
+}
+
+impl From<std::ops::RangeFrom<ClusteringKeyValue>> for ClusteringKeyValueRange {
+    fn from(value: std::ops::RangeFrom<ClusteringKeyValue>) -> Self {
+        Self::From(value.start)
+    }
+}
+
+impl From<std::ops::RangeToInclusive<ClusteringKeyValue>> for ClusteringKeyValueRange {
+    fn from(value: std::ops::RangeToInclusive<ClusteringKeyValue>) -> Self {
+        Self::To(value.end)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
+pub enum PartitionKeyValue {
+    Simple(CqlValue),
+    Composite(Vec<CqlValue>),
+
+    Empty,
+}
+
+impl From<CqlValue> for PartitionKeyValue {
+    fn from(value: CqlValue) -> Self {
+        match value {
+            CqlValue::Empty => Self::Empty,
+            CqlValue::Tuple(values) => Self::Composite(values),
+            _ => Self::Simple(value),
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a PartitionKeyValue {
+    type Item = &'a CqlValue;
+
+    type IntoIter = std::slice::Iter<'a, CqlValue>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            PartitionKeyValue::Simple(v) => std::slice::from_ref(v).iter(),
+            PartitionKeyValue::Composite(vs) => vs.as_slice().iter(),
+            PartitionKeyValue::Empty => [].iter(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum PartitionKeyValueRange {
+    Full,
+    From(PartitionKeyValue),
+    To(PartitionKeyValue),
+    Range(PartitionKeyValue, PartitionKeyValue),
+}
+
+impl RangeBounds<PartitionKeyValue> for PartitionKeyValueRange {
+    fn start_bound(&self) -> std::ops::Bound<&PartitionKeyValue> {
+        match self {
+            PartitionKeyValueRange::Full => std::ops::Bound::Unbounded,
+            PartitionKeyValueRange::From(v) => std::ops::Bound::Included(v),
+            PartitionKeyValueRange::To(_) => std::ops::Bound::Unbounded,
+            PartitionKeyValueRange::Range(v, _) => std::ops::Bound::Included(v),
+        }
+    }
+
+    fn end_bound(&self) -> std::ops::Bound<&PartitionKeyValue> {
+        match self {
+            PartitionKeyValueRange::Full => std::ops::Bound::Unbounded,
+            PartitionKeyValueRange::From(_) => std::ops::Bound::Unbounded,
+            PartitionKeyValueRange::To(v) => std::ops::Bound::Included(v),
+            PartitionKeyValueRange::Range(_, v) => std::ops::Bound::Included(v),
+        }
+    }
+}
+
+impl From<std::ops::Range<PartitionKeyValue>> for PartitionKeyValueRange {
+    fn from(value: std::ops::Range<PartitionKeyValue>) -> Self {
+        PartitionKeyValueRange::Range(value.start, value.end)
+    }
+}
+
+impl From<std::ops::RangeFull> for PartitionKeyValueRange {
+    fn from(_: std::ops::RangeFull) -> Self {
+        PartitionKeyValueRange::Full
+    }
+}
+
+impl From<std::ops::RangeFrom<PartitionKeyValue>> for PartitionKeyValueRange {
+    fn from(value: std::ops::RangeFrom<PartitionKeyValue>) -> Self {
+        Self::From(value.start)
+    }
+}
+
+impl From<std::ops::RangeToInclusive<PartitionKeyValue>> for PartitionKeyValueRange {
+    fn from(value: std::ops::RangeToInclusive<PartitionKeyValue>) -> Self {
+        Self::To(value.end)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::CqlValue;
+    use crate::cql::value::PartitionKeyValue;
 
     #[test]
     fn test_composite_value_ranges() {
@@ -384,9 +583,9 @@ mod tests {
 
     #[test]
     fn test_simple_value_ranges() {
-        let range = 3i32.into()..=CqlValue::Empty;
+        let range = PartitionKeyValue::Simple(3i32.into())..;
 
-        assert!(range.contains(&CqlValue::Int(4)));
-        assert!(!range.contains(&CqlValue::Int(2)));
+        assert!(range.contains(&CqlValue::Int(4).into()));
+        assert!(!range.contains(&CqlValue::Int(2).into()));
     }
 }

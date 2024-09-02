@@ -4,3 +4,5 @@
 /logs
 /default.etcd
 **/target
+data
+result

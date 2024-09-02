@@ -1,38 +1,53 @@
 {
-    description = "Kassandra Node package";
-    inputs = {
-         nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-         fenix = {
-           url = "github:nix-community/fenix";
-           inputs.nixpkgs.follows = "nixpkgs";
-         };
-         flake-utils.url = "github:numtide/flake-utils";
-   };
+  description = "Kassandra Node package";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    systems.url = "github:nix-systems/default";
+    flake-utils.url = "github:numtide/flake-utils";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    crane.url = "github:ipetkov/crane";
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
 
-    outputs = {
-        self,
-        nixpkgs,
-        fenix,
-        flake-utils,
-    }: flake-utils.lib.eachDefaultSystem (system: {
-         packages.default =
-           let
-             toolchain = fenix.packages.${system}.minimal.toolchain;
-             pkgs = nixpkgs.legacyPackages.${system};
-           in
+  outputs = inputs:
+    inputs.flake-parts.lib.mkFlake {inherit inputs;} {
+      debug = true;
+      systems = import inputs.systems;
+      perSystem = {
+        inputs',
+        pkgs,
+        system,
+        ...
+      }: {
+        _module.args.pkgs = import inputs.nixpkgs {
+          inherit system;
+          overlays = [
+            (final: prev: {
+              cassandra = prev.cassandra.override {
+                python = prev.python3;
+              };
+            })
+          ];
+        };
+        packages.default = pkgs.callPackage ./tools/kassandra-node.nix {
+          crane = inputs.crane;
+          fenix = inputs.fenix.packages.${ system };
+        };
+        formatter = pkgs.alejandra;
 
-           (pkgs.makeRustPlatform {
-             cargo = toolchain;
-             rustc = toolchain;
-           }).buildRustPackage {
-             pname = "kassandra-node";
-             version = "0.13.1";
-
-             src = ./.;
-             nativeBuildInputs = [
-                pkgs.protobuf
-             ];
-             cargoLock.lockFile = ./Cargo.lock;
-           };
-       });
+        devShells.default = let
+          cassandra = pkgs.callPackage ./tools/cassandra.nix {};
+          cqlsh = pkgs.callPackage ./tools/cqlsh.nix {};
+        in
+          pkgs.mkShell {
+            nativeBuildInputs = [
+              cassandra
+              cqlsh
+            ];
+          };
+      };
+    };
 }

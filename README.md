@@ -20,6 +20,7 @@ List of supported features:
 - [ ] UDTs
 - [x] prepared queries support (prepare, execute, batch)
 - [ ] proper system tables
+- [x] paging support
 - [ ] correct paging support
 
 ## Kassandra Node

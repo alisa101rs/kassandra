@@ -2,32 +2,32 @@ use tracing::{instrument, Level};
 
 use crate::{
     cql::{
-        column,
-        column::{Column, ColumnKind},
-        execution,
+        column::{self, Column, ColumnKind},
         execution::{
+            self,
             selector::{ColumnsSelector, Transform},
-            AlterSchema, DeleteNode, InsertNode, PagingState, ScanNode, SelectNode,
+            AlterSchema, DeleteNode, InsertNode, ScanNode, SelectNode,
         },
         functions::CqlFunction,
         plan::{data_reader, Aggregate, Plan},
-        query,
         query::{
-            CreateKeyspaceQuery, CreateTableQuery, DeleteQuery, InsertQuery, QueryString,
+            self, CreateKeyspaceQuery, CreateTableQuery, DeleteQuery, InsertQuery, QueryString,
             QueryValue, SelectExpression, SelectQuery,
         },
-        schema::{keyspace::Strategy, PrimaryKey, TableSchema},
+        schema::{keyspace::Strategy, PrimaryKey, PrimaryKeyColumn, TableSchema},
         types::PreCqlType,
-        value::CqlValue,
+        value::{ClusteringKeyValue, ClusteringKeyValueRange, CqlValue, PartitionKeyValue},
         Catalog,
     },
     error::DbError,
     frame::{
+        parse,
         request::QueryParameters,
         response::{
             error::Error,
             result::{ColumnSpec, PartitionKeyIndex, PreparedMetadata, ResultMetadata, TableSpec},
         },
+        value::PagingState,
     },
 };
 
@@ -55,7 +55,7 @@ impl<C: Catalog> Planner<C> {
                 self.select(select, parameters)
             }
 
-            QueryString::Select(select) => self.scan(select),
+            QueryString::Select(select) => self.scan(select, parameters),
             QueryString::Insert(insert) => self.insert(insert, parameters),
             QueryString::Delete(delete) if delete.columns.is_empty() => {
                 self.delete(delete, parameters)
@@ -201,7 +201,9 @@ impl<C: Catalog> Planner<C> {
         )?;
 
         let partition_key = values.get_partition_key()?;
-        let clustering_key = values.get_clustering_key().unwrap_or(CqlValue::Empty);
+        let clustering_key = values
+            .get_clustering_key()
+            .unwrap_or(ClusteringKeyValue::Empty);
         let mut values = vec![];
         for column in delete.columns {
             if schema.columns.get(&column).is_none() {
@@ -247,7 +249,9 @@ impl<C: Catalog> Planner<C> {
         )?;
 
         let partition_key = values.get_partition_key()?;
-        let clustering_key = values.get_clustering_key().unwrap_or(CqlValue::Empty);
+        let clustering_key = values
+            .get_clustering_key()
+            .unwrap_or(ClusteringKeyValue::Empty);
 
         Ok(Plan::Delete(DeleteNode {
             keyspace,
@@ -325,6 +329,7 @@ impl<C: Catalog> Planner<C> {
             table,
             columns,
             r#where,
+            limit,
             ..
         } = select;
 
@@ -348,19 +353,32 @@ impl<C: Catalog> Planner<C> {
 
         let metadata = metadata(&keyspace, &table, schema, &columns)?;
         let selector = columns_selector(schema, columns)?;
+        let clustering_range = match parameters.paging_state {
+            Some(PagingState {
+                row_mark: Some(ref row_mark),
+                ..
+            }) => {
+                let marker = decode_row_marker(row_mark, &schema.clustering_key_column())?;
+                clustering_key.from(marker)
+            }
+            _ => clustering_key,
+        };
+
+        let limit = match (limit, parameters.paging_state) {
+            (None, _) => usize::MAX,
+            (Some(v), None) => v,
+            (Some(_), Some(s)) => s.remaining,
+        };
 
         let node = SelectNode {
             keyspace,
             table,
             partition_key,
             selector,
-            clustering_key,
+            clustering_range,
             metadata,
-            limit: None,
-            state: PagingState {
-                row: None,
-                remaining: 0,
-            },
+            limit,
+            result_page_size: parameters.result_page_size.unwrap_or(100),
         };
         if select.json {
             Ok(Plan::Aggregate {
@@ -400,11 +418,12 @@ impl<C: Catalog> Planner<C> {
         Ok((prepared_metadata, metadata))
     }
 
-    fn scan(&mut self, select: SelectQuery) -> Result<Plan, Error> {
+    fn scan(&mut self, select: SelectQuery, parameters: QueryParameters) -> Result<Plan, Error> {
         let SelectQuery {
             keyspace,
             table,
             columns,
+            limit,
             ..
         } = select;
 
@@ -420,12 +439,43 @@ impl<C: Catalog> Planner<C> {
         let metadata = metadata(&keyspace, &table, schema, &columns)?;
         let selector = columns_selector(schema, columns)?;
 
+        let clustering_key_start = match parameters.paging_state {
+            Some(PagingState {
+                row_mark: Some(ref row_mark),
+                ..
+            }) => {
+                let marker = decode_row_marker(row_mark, &schema.clustering_key_column())?;
+                ClusteringKeyValueRange::From(marker)
+            }
+            _ => ClusteringKeyValueRange::Full,
+        };
+        let partition_range = match parameters.paging_state {
+            Some(PagingState {
+                partition_key: Some(ref partition_key),
+                ..
+            }) => {
+                let partition =
+                    decode_partition_start(partition_key, &schema.partition_key_column())?;
+                (partition..).into()
+            }
+            _ => (..).into(),
+        };
+
+        let limit = match (limit, parameters.paging_state) {
+            (None, _) => usize::MAX,
+            (Some(v), None) => v,
+            (Some(_), Some(s)) => s.remaining,
+        };
+
         let node = ScanNode {
             keyspace,
             table,
             metadata,
             selector,
-            range: 0..5000,
+            partition_range,
+            clustering_key_start,
+            limit,
+            result_page_size: parameters.result_page_size.unwrap_or(500),
         };
 
         if select.json {
@@ -586,4 +636,12 @@ fn columns_selector(
             })
             .collect::<Result<_, _>>()?,
     }))
+}
+
+fn decode_row_marker(data: &[u8], ty: &PrimaryKeyColumn) -> Result<ClusteringKeyValue, Error> {
+    Ok(parse::clustering_key(data, ty)?.1)
+}
+
+fn decode_partition_start(data: &[u8], ty: &PrimaryKeyColumn) -> Result<PartitionKeyValue, Error> {
+    Ok(parse::partition_key(data, ty)?.1)
 }

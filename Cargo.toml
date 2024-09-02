@@ -1,7 +1,12 @@
 [workspace]
 resolver = "2"
-members = [
-    "kassandra",
-    "kassandra-node",
-    "kassandra-tester",
-]
+members = ["kassandra", "kassandra-node", "kassandra-tester", "kassandra-proxy"]
+
+[workspace.package]
+version = "0.14.0"
+authors = ["Alisa Gorelova <nanopro1g@gmail.com>"]
+repository = "https://github.com/alisa101rs/kassandra"
+license = "MIT"
+readme = "./README.md"
+edition = "2021"
+keywords = ["cassandra", "db"]

@@ -1,12 +1,16 @@
 use std::{
-    collections::{BTreeMap, Bound, HashMap},
+    collections::{BTreeMap, HashMap},
     ops::RangeBounds,
 };
 
 use eyre::eyre;
 use serde::{Deserialize, Serialize};
 
-use crate::{cql::value::CqlValue, snapshot::DataSnapshots};
+use super::RowEntry;
+use crate::{
+    cql::value::{ClusteringKeyValue, CqlValue, PartitionKeyValue},
+    snapshot::DataSnapshots,
+};
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct Memory {
@@ -14,7 +18,7 @@ pub struct Memory {
 }
 
 pub(crate) type Keyspace = HashMap<String, Table>;
-pub(crate) type Table = BTreeMap<CqlValue, BTreeMap<CqlValue, RowValues>>;
+pub(crate) type Table = BTreeMap<PartitionKeyValue, BTreeMap<ClusteringKeyValue, RowValues>>;
 pub(crate) type RowValues = BTreeMap<String, CqlValue>;
 
 impl Memory {
@@ -43,8 +47,8 @@ impl super::Storage for Memory {
         &mut self,
         keyspace: &str,
         table: &str,
-        partition_key: CqlValue,
-        clustering_key: CqlValue,
+        partition_key: PartitionKeyValue,
+        clustering_key: ClusteringKeyValue,
         values: impl Iterator<Item = (String, CqlValue)>,
     ) -> eyre::Result<()> {
         let table = self
@@ -68,8 +72,8 @@ impl super::Storage for Memory {
         &mut self,
         keyspace: &str,
         table: &str,
-        partition_key: &CqlValue,
-        clustering_key: &CqlValue,
+        partition_key: &PartitionKeyValue,
+        clustering_key: &ClusteringKeyValue,
     ) -> eyre::Result<()> {
         let table = self
             .data
@@ -79,7 +83,7 @@ impl super::Storage for Memory {
             .ok_or(eyre!("Table does not exist"))?;
 
         match clustering_key {
-            CqlValue::Empty => {
+            ClusteringKeyValue::Empty => {
                 table.remove(partition_key);
             }
             other => {
@@ -94,13 +98,13 @@ impl super::Storage for Memory {
         Ok(())
     }
 
-    fn read(
-        &mut self,
+    fn read<'a, 'b: 'a>(
+        &'a mut self,
         keyspace: &str,
         table: &str,
-        partition_key: &CqlValue,
-        range: impl RangeBounds<CqlValue> + Clone + 'static,
-    ) -> eyre::Result<Box<dyn Iterator<Item = Self::RowIterator<'_>> + '_>> {
+        partition_key: &'b PartitionKeyValue,
+        range: impl RangeBounds<ClusteringKeyValue> + Clone + 'static,
+    ) -> eyre::Result<Box<dyn Iterator<Item = RowEntry<'a, Self::RowIterator<'a>>> + 'a>> {
         let partition = self
             .data
             .entry(keyspace.to_owned())
@@ -108,17 +112,24 @@ impl super::Storage for Memory {
             .entry(table.to_owned())
             .or_default()
             .get(partition_key);
-        Ok(Box::new(partition.into_iter().flat_map(move |p| {
-            p.range(range.clone()).map(|(_k, v)| v.iter())
-        })))
+        let iter = partition.into_iter().flat_map(move |partition_entry| {
+            partition_entry
+                .range(range.clone())
+                .map(move |(clustering_key, row)| RowEntry {
+                    row: row.iter(),
+                    partition: partition_key,
+                    clustering: clustering_key,
+                })
+        });
+        Ok(Box::new(iter))
     }
 
     fn scan(
         &mut self,
         keyspace: &str,
         table: &str,
-        range: impl RangeBounds<usize> + Clone + 'static,
-    ) -> eyre::Result<Box<dyn Iterator<Item = Self::RowIterator<'_>> + '_>> {
+        range: impl RangeBounds<PartitionKeyValue> + Clone + 'static,
+    ) -> eyre::Result<Box<dyn Iterator<Item = RowEntry<'_, Self::RowIterator<'_>>> + '_>> {
         let table = self
             .data
             .entry(keyspace.to_owned())
@@ -126,24 +137,14 @@ impl super::Storage for Memory {
             .entry(table.to_owned())
             .or_default();
 
-        let skip = match range.start_bound() {
-            Bound::Included(&i) => i,
-            Bound::Excluded(&i) => i + 1,
-            Bound::Unbounded => 0,
-        };
+        let iter = table.range(range).flat_map(|(partition_key, values)| {
+            values.iter().map(|(clustering_key, row)| RowEntry {
+                partition: partition_key,
+                clustering: clustering_key,
+                row: row.iter(),
+            })
+        });
 
-        let take = match range.end_bound() {
-            Bound::Included(&i) => i - skip,
-            Bound::Excluded(&i) => i - 1 - skip,
-            Bound::Unbounded => usize::MAX,
-        };
-
-        Ok(Box::new(
-            table
-                .iter()
-                .flat_map(|(_key, values)| values.iter().map(|(_, row)| row.iter()))
-                .skip(skip)
-                .take(take),
-        ))
+        Ok(Box::new(iter))
     }
 }
