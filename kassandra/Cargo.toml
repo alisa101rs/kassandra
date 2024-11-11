@@ -22,7 +22,7 @@ bytes = { version = "1.4.0", features = ["serde"] }
 bitflags = "2"
 indexmap = { version = "2.1.0", features = ["serde"] }
 seahash = "4.1.0"
-thiserror = "1.0.40"
+thiserror = "2.0.3"
 ulid = "1.0.0"
 uuid = { version = "1.10.0", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
